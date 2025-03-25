@@ -23,14 +23,14 @@ and more.
 ### From PyPI
 
 ```bash
-pip install extend-api-client
+pip install extend-python
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/extend-api-client.git
-cd extend-api-client
+git clone https://github.com/yourusername/extend-python.git
+cd extend-python
 pip install -e .
 ```
 
@@ -74,8 +74,8 @@ The following environment variables are required for integration tests and examp
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/extend-api-client.git
-   cd extend-api-client
+   git clone https://github.com/yourusername/extend-python.git
+   cd extend-python
    ```
 
 2. Create and activate a virtual environment:
