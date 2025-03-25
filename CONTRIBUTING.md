@@ -7,8 +7,8 @@ Thank you for your interest in contributing to the Extend API Client! This docum
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/your-username/extend-api-client.git
-   cd extend-api-client
+   git clone https://github.com/your-username/extend-python.git
+   cd extend-python
    ```
 3. Create a virtual environment and activate it:
    ```bash

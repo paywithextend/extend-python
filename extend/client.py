@@ -17,7 +17,7 @@ class APIClient:
         cards = await client.get_virtual_cards()
         ```
     """
-    BASE_URL = "https://apiv2-stage.paywithextend.com"
+    BASE_URL = "https://apiv2.paywithextend.com"
     API_VERSION = "application/vnd.paywithextend.v2021-03-12+json"
 
     _shared_instance: Optional["APIClient"] = None
