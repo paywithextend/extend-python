@@ -1,7 +1,6 @@
 import os
 from datetime import datetime, timedelta
 
-import httpx
 import pytest
 from dotenv import load_dotenv
 
@@ -26,7 +25,6 @@ def extend():
     """Create a real API client for integration testing"""
     api_key = os.getenv("EXTEND_API_KEY")
     api_secret = os.getenv("EXTEND_API_SECRET")
-    timeout = httpx.Timeout(30.0)
     return ExtendClient(api_key, api_secret)
 
 

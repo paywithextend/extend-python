@@ -23,14 +23,14 @@ and more.
 ### From PyPI
 
 ```bash
-pip install extend-api-client
+pip install extend
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/extend-api-client.git
-cd extend-api-client
+git clone https://github.com/yourusername/extend-python.git
+cd extend-python
 pip install -e .
 ```
 
@@ -38,23 +38,23 @@ pip install -e .
 
 ```python
 import asyncio
-from extend import ExtendAPI
+from extend import ExtendClient
 
 
 async def main():
     # Initialize the client
-    client = ExtendAPI(
+    client = ExtendClient(
         api_key="your-api-key",
         api_secret="your-api-secret"
     )
 
     # Get all virtual cards
-    cards = await client.get_virtual_cards()
-    print("Virtual Cards:", cards)
+    response = await client.virtual_cards.get_virtual_cards()
+    print("Virtual Cards:", response["virtualCards"])
 
     # Get all transactions
-    transactions = await client.get_transactions()
-    print("Transactions:", transactions)
+    response = await client.transactions.get_transactions()
+    print("Transactions:", response["transactions"])
 
 
 # Run the async function
@@ -74,8 +74,8 @@ The following environment variables are required for integration tests and examp
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/extend-api-client.git
-   cd extend-api-client
+   git clone https://github.com/yourusername/extend-python.git
+   cd extend-python
    ```
 
 2. Create and activate a virtual environment:
