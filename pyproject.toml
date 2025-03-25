@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "extend-api-client"
+version = "0.1.0"
+description = "A Python client for the Extend API"
+readme = "README.md"
+authors = [{ name = "Jonathan Bailey", email = "jonbailey@paywithextend.com" }]
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "httpx>=0.24.0",
+    "typing-extensions>=4.0.0",
+]
+
+# Add this section to specify where your package is located
+[tool.hatch.build.targets.wheel]
+packages = ["src/extend_api"]
+
+[tool.hatch.build]
+packages = ["src"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "isort>=5.0",
+    "jupyter>=1.0.0",
+    "ipykernel>=6.0.0",
+    "notebook>=7.0.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests"
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
