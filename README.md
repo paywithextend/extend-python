@@ -38,23 +38,23 @@ pip install -e .
 
 ```python
 import asyncio
-from extend import ExtendAPI
+from extend import ExtendClient
 
 
 async def main():
     # Initialize the client
-    client = ExtendAPI(
+    client = ExtendClient(
         api_key="your-api-key",
         api_secret="your-api-secret"
     )
 
     # Get all virtual cards
-    cards = await client.get_virtual_cards()
-    print("Virtual Cards:", cards)
+    response = await client.virtual_cards.get_virtual_cards()
+    print("Virtual Cards:", response["virtualCards"])
 
     # Get all transactions
-    transactions = await client.get_transactions()
-    print("Transactions:", transactions)
+    response = await client.transactions.get_transactions()
+    print("Transactions:", response["transactions"])
 
 
 # Run the async function

@@ -3,6 +3,8 @@ from typing import Optional, Dict, Any
 
 import httpx
 
+from .config import API_HOST, API_VERSION
+
 
 class APIClient:
     """Client for interacting with the Extend API.
@@ -17,8 +19,6 @@ class APIClient:
         cards = await client.get_virtual_cards()
         ```
     """
-    BASE_URL = "https://apiv2.paywithextend.com"
-    API_VERSION = "application/vnd.paywithextend.v2021-03-12+json"
 
     _shared_instance: Optional["APIClient"] = None
 
@@ -33,7 +33,7 @@ class APIClient:
         self.headers = {
             "x-extend-api-key": api_key,
             "Authorization": f"Basic {auth_value}",
-            "Accept": self.API_VERSION
+            "Accept": API_VERSION
         }
 
     @classmethod
@@ -70,7 +70,8 @@ class APIClient:
             response = await client.get(
                 self.build_full_url(url),
                 headers=self.headers,
-                params=params
+                params=params,
+                timeout=httpx.Timeout(30)
             )
             response.raise_for_status()
             return response.json()
@@ -79,7 +80,7 @@ class APIClient:
         """Make a POST request to the Extend API.
         
         Args:
-            url (str): The API endpoint path (e.g., "virtualcards")
+            url (str): The API endpoint path (e.g., "/virtualcards")
             data (Dict): The JSON payload to send in the request body
             
         Returns:
@@ -93,7 +94,8 @@ class APIClient:
             response = await client.post(
                 self.build_full_url(url),
                 headers=self.headers,
-                json=data
+                json=data,
+                timeout=httpx.Timeout(30)
             )
             response.raise_for_status()
             return response.json()
@@ -102,7 +104,7 @@ class APIClient:
         """Make a PUT request to the Extend API.
         
         Args:
-            url (str): The API endpoint path (e.g., "virtualcards/{card_id}")
+            url (str): The API endpoint path (e.g., "/virtualcards/{card_id}")
             data (Dict): The JSON payload to send in the request body
             
         Returns:
@@ -116,10 +118,11 @@ class APIClient:
             response = await client.put(
                 self.build_full_url(url),
                 headers=self.headers,
-                json=data
+                json=data,
+                timeout=httpx.Timeout(30)
             )
             response.raise_for_status()
             return response.json()
 
     def build_full_url(self, url: Optional[str]):
-        return f"{self.BASE_URL}{url or ''}"
+        return f"https://{API_HOST}{url or ''}"
