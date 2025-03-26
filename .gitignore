@@ -49,7 +49,7 @@ coverage.xml
 
 # Jupyter Notebook
 .ipynb_checkpoints
-*.ipynb
+
 
 # Distribution / packaging
 .Python

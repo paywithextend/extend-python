@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any
 
 import httpx
 
-from .config import config
+from .config import API_HOST, API_VERSION
 
 
 class APIClient:
@@ -19,7 +19,6 @@ class APIClient:
         cards = await client.get_virtual_cards()
         ```
     """
-    BASE_URL = "https://apiv2-stage.paywithextend.com"
 
     _shared_instance: Optional["APIClient"] = None
 
@@ -34,7 +33,7 @@ class APIClient:
         self.headers = {
             "x-extend-api-key": api_key,
             "Authorization": f"Basic {auth_value}",
-            "Accept": config.API_VERSION
+            "Accept": API_VERSION
         }
 
     @classmethod
@@ -126,4 +125,4 @@ class APIClient:
             return response.json()
 
     def build_full_url(self, url: Optional[str]):
-        return f"{self.BASE_URL}{url or ''}"
+        return f"https://{API_HOST}{url or ''}"

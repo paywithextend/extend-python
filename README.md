@@ -23,7 +23,7 @@ and more.
 ### From PyPI
 
 ```bash
-pip install extend
+pip install extend-python
 ```
 
 ### From Source
