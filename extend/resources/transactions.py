@@ -14,38 +14,51 @@ class Transactions(Resource):
 
     async def get_transactions(
             self,
+            page: Optional[int] = None,
+            per_page: Optional[int] = None,
             from_date: Optional[str] = None,
             to_date: Optional[str] = None,
-            page: Optional[int] = None,
-            page_size: Optional[int] = None,
+            virtual_card_id: Optional[str] = None,
+            min_amount_cents: Optional[int] = None,
+            max_amount_cents: Optional[int] = None,
+            search_term: Optional[str] = None,
     ) -> Dict:
         """Get a list of transactions with optional filtering and pagination.
 
         Args:
+            page (Optional[int]): The page number for pagination (1-based)
+            per_page (Optional[int]): Number of items per page
             from_date (Optional[str]): Start date in YYYY-MM-DD format
             to_date (Optional[str]): End date in YYYY-MM-DD format
-            page (Optional[int]): The page number for pagination (1-based)
-            page_size (Optional[int]): Number of items per page
+            virtual_card_id (str): Filter by specific virtual card
+            min_amount_cents (int): Minimum clearing amount in cents
+            max_amount_cents (int): Maximum clearing amount in cents
+            search_term (Optional[str]): Filter cards by search term (e.g., "Marketing")
 
         Returns:
             Dict: A dictionary containing:
                 - transactions: List of Transaction objects
-                - total: Total number of transactions
-                - page: Current page number
-                - pageSize: Number of items per page
+                - pagination: Dictionary containing the following pagination stats:
+                    - page: Current page number
+                    - pageItemCount: Number of items per page
+                    - totalItems: Total items will be 1 more than pageItemCount if there is another page to fetch
+                    - numberOfPages: Total number of pages
 
         Raises:
             httpx.HTTPError: If the request fails
         """
-        params = {}
-        if from_date:
-            params["fromDate"] = from_date
-        if to_date:
-            params["toDate"] = to_date
-        if page is not None:
-            params["page"] = page
-        if page_size is not None:
-            params["count"] = page_size
+
+        params = {
+            "page": page,
+            "count": per_page,
+            "fromDate": from_date,
+            "toDate": to_date,
+            "virtualCardId": virtual_card_id,
+            "minClearingBillingCents": min_amount_cents,
+            "maxClearingBillingCents": max_amount_cents,
+            "search": search_term,
+        }
+        params = {k: v for k, v in params.items() if v is not None}
 
         return await self._request(method="get", params=params)
 

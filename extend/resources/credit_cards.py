@@ -15,29 +15,37 @@ class CreditCards(Resource):
     async def get_credit_cards(
             self,
             page: Optional[int] = None,
-            page_size: Optional[int] = None,
+            per_page: Optional[int] = None,
             status: Optional[str] = None,
+            search_term: Optional[str] = None,
     ) -> Dict:
         """Get a list of all credit cards associated with your account.
 
         Args:
             page (Optional[int]): The page number for pagination (1-based)
-            page_size (Optional[int]): Number of items per page
+            per_page (Optional[int]): Number of items per page
             status (Optional[str]): Filter cards by status (e.g., "ACTIVE", "CANCELLED")
+            search_term (Optional[str]): Filter cards by search term (e.g., "Marketing")
 
         Returns:
-            Dict: A dictionary containing the list of credit cards and pagination info
+            Dict: A dictionary containing:
+                - creditCards: List of creditCard objects
+                - pagination: Dictionary containing the following pagination stats:
+                    - page: Current page number
+                    - pageItemCount: Number of items per page
+                    - totalItems: Total number of credit cards across all pages
+                    - numberOfPages: Total number of pages
 
         Raises:
             httpx.HTTPError: If the request fails
         """
 
-        params = {}
-        if page is not None:
-            params["page"] = page
-        if page_size is not None:
-            params["count"] = page_size
-        if status:
-            params["statuses"] = status
+        params = {
+            "page": page,
+            "count": per_page,
+            "statuses": status,
+            "search": search_term,
+        }
+        params = {k: v for k, v in params.items() if v is not None}
 
         return await self._request(method="get", params=params)
