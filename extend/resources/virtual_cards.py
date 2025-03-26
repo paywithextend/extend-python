@@ -17,33 +17,40 @@ class VirtualCards(Resource):
     async def get_virtual_cards(
             self,
             page: Optional[int] = None,
-            page_size: Optional[int] = None,
+            per_page: Optional[int] = None,
             status: Optional[str] = None,
+            recipient: Optional[str] = None,
+            search_term: Optional[str] = None,
     ) -> Dict:
         """Get a list of virtual cards with optional filtering and pagination.
 
         Args:
             page (Optional[int]): The page number for pagination (1-based)
-            page_size (Optional[int]): Number of items per page
+            per_page (Optional[int]): Number of items per page
             status (Optional[str]): Filter cards by status (e.g., "ACTIVE", "CANCELLED")
+            recipient (Optional[str]): Filter cards by recipient id (e.g., "u_1234")
+            search_term (Optional[str]): Filter cards by search term (e.g., "Marketing")
 
         Returns:
             Dict: A dictionary containing:
                 - virtualCards: List of VirtualCard objects
-                - total: Total number of cards
-                - page: Current page number
-                - pageSize: Number of items per page
+                - pagination: Dictionary containing the following pagination stats:
+                    - page: Current page number
+                    - pageItemCount: Number of items per page
+                    - totalItems: Total number of virtual cards across all pages
+                    - numberOfPages: Total number of pages
 
         Raises:
             httpx.HTTPError: If the request fails
         """
-        params = {}
-        if page is not None:
-            params["page"] = page
-        if page_size is not None:
-            params["count"] = page_size
-        if status:
-            params["status"] = status
+        params = {
+            "page": page,
+            "count": per_page,
+            "statuses": status,
+            "recipient": recipient,
+            "search": search_term,
+        }
+        params = {k: v for k, v in params.items() if v is not None}
 
         return await self._request(method="get", params=params)
 
@@ -112,6 +119,7 @@ class VirtualCards(Resource):
             recipient_email=recipient,
             valid_to=valid_to,
             notes=notes,
+            recurs=recurs,
             recurrence=recurrence
         )
 

@@ -117,7 +117,7 @@ class TestVirtualCards:
         # List with pagination
         response = await extend.virtual_cards.get_virtual_cards(
             page=1,
-            page_size=10
+            per_page=10
         )
         assert len(response["virtualCards"]) <= 10
 

@@ -17,6 +17,7 @@ def validate_card_creation_data(
         valid_from: Optional[str] = None,
         valid_to: Optional[str] = None,
         notes: Optional[str] = None,
+        recurs: bool = False,
         recurrence: Optional[Dict] = None,
 ) -> CardCreationRequest:
     """Validate and format card creation data.
@@ -29,6 +30,7 @@ def validate_card_creation_data(
         valid_from (Optional[str]): Start date in YYYY-MM-DD format
         valid_to (Optional[str]): Expiration date in YYYY-MM-DD format
         notes (Optional[str]): Additional notes about the card
+        recurs (bool): Flag to indicate the card should recur
         recurrence (Optional[Dict]): Recurrence configuration
 
     Returns:
@@ -98,10 +100,14 @@ def validate_card_creation_data(
             raise ValueError("Notes must be less than 500 characters")
         data["notes"] = notes
 
-    # Handle recurrence configuration if provided
-    if recurrence:
-        data["recurs"] = True
-        data["recurrence"] = validate_recurrence_data(**recurrence)
+    if recurs:
+        if not recurrence:
+            raise ValueError("recurrence configuration is required for recurring cards")
+        if not all([recurrence["period"], recurrence["interval"], recurrence["terminator"]]):
+            raise ValueError("period, interval, and terminator are required for recurring cards")
+        else:
+            data["recurs"] = True
+            data["recurrence"] = validate_recurrence_data(**recurrence)
 
     return data
 
