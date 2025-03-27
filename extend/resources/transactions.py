@@ -75,3 +75,39 @@ class Transactions(Resource):
             httpx.HTTPError: If the request fails or transaction not found
         """
         return await self._request(method="get", path=f"/{transaction_id}")
+
+    async def update_transaction_expense_data(self, transaction_id: str, data: Dict) -> Dict:
+        """Update the expense data for a specific transaction.
+
+        Args:
+            transaction_id (str): The unique identifier of the transaction
+            data (Dict): A dictionary representing the expense data to update, should match
+                         the schema:
+                         {
+                             "supplier": {
+                                 "name": "Some Supplier",
+                                 "id": "supplier-id"
+                             },
+                             "expenseCategories": [
+                                 {
+                                     "categoryCode": "COMPCODE",
+                                     "labelCode": "ABC123"
+                                 }
+                             ],
+                             "customer": {
+                                 "name": "Some Customer",
+                                 "id": "customer-id"
+                             }
+                         }
+
+        Returns:
+            Dict: A dictionary containing the updated transaction details
+
+        Raises:
+            httpx.HTTPError: If the request fails or the transaction is not found
+        """
+        return await self._request(
+            method="patch",
+            path=f"/{transaction_id}/expensedata",
+            params=data
+        )

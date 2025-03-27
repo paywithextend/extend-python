@@ -1,6 +1,7 @@
 from extend.resources.virtual_cards import VirtualCards
 from .client import APIClient
 from .resources.credit_cards import CreditCards
+from .resources.expense_data import ExpenseData
 from .resources.transactions import Transactions
 
 
@@ -29,3 +30,4 @@ class ExtendClient:
         self.credit_cards = CreditCards(self._api_client)
         self.virtual_cards = VirtualCards(self._api_client)
         self.transactions = Transactions(self._api_client)
+        self.expense_data = ExpenseData(self._api_client)

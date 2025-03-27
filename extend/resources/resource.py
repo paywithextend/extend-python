@@ -22,6 +22,8 @@ class Resource:
             path: str = None,
             params: Optional[Dict] = None
     ) -> Any:
+        if params is not None:
+            params = {k: v for k, v in params.items() if v is not None}
         match method:
             case "get":
                 return await self._api_client.get(self.build_full_path(path), params)
@@ -29,6 +31,8 @@ class Resource:
                 return await self._api_client.post(self.build_full_path(path), params)
             case "put":
                 return await self._api_client.put(self.build_full_path(path), params)
+            case "patch":
+                return await self._api_client.patch(self.build_full_path(path), params)
             case _:
                 raise ValueError(f"Unsupported HTTP method: {method}")
 
