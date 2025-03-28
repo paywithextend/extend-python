@@ -124,5 +124,29 @@ class APIClient:
             response.raise_for_status()
             return response.json()
 
+    async def patch(self, url: str, data: Dict) -> Any:
+        """Make a PATCH request to the Extend API.
+
+        Args:
+            url (str): The API endpoint path (e.g., "/virtualcards/{card_id}")
+            data (Dict): The JSON payload to send in the request body
+
+        Returns:
+            The JSON response from the API
+
+        Raises:
+            httpx.HTTPError: If the request fails
+            ValueError: If the response is not valid JSON
+        """
+        async with httpx.AsyncClient() as client:
+            response = await client.patch(
+                self.build_full_url(url),
+                headers=self.headers,
+                json=data,
+                timeout=httpx.Timeout(30)
+            )
+            response.raise_for_status()
+            return response.json()
+
     def build_full_url(self, url: Optional[str]):
         return f"https://{API_HOST}{url or ''}"

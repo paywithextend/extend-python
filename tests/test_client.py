@@ -382,3 +382,222 @@ async def test_http_error_handling(extend, mocker):
 
     with pytest.raises(httpx.NetworkError):
         await extend.virtual_cards.get_virtual_cards()
+
+
+@pytest.mark.asyncio
+async def test_update_transaction_expense_data_success(extend, mocker, mock_transaction):
+    mock_response = {
+        "transaction": {
+            **mock_transaction,
+            "supplier": {"name": "Acme Inc", "id": "sup_123"},
+            "customer": {"name": "Client A", "id": "cust_456"},
+            "expenseCategories": [
+                {"categoryCode": "TRAVEL", "labelCode": "TAXI"}
+            ]
+        }
+    }
+
+    mocker.patch.object(
+        extend._api_client,
+        'patch',
+        return_value=mock_response
+    )
+
+    response = await extend.transactions.update_transaction_expense_data(
+        transaction_id=mock_transaction["id"],
+        data={
+            "supplier": {"name": "Acme Inc", "id": "sup_123"},
+            "customer": {"name": "Client A", "id": "cust_456"},
+            "expenseCategories": [{"categoryCode": "TRAVEL", "labelCode": "TAXI"}]
+        }
+    )
+
+    assert response["transaction"]["supplier"]["name"] == "Acme Inc"
+    assert response["transaction"]["customer"]["id"] == "cust_456"
+    assert response["transaction"]["expenseCategories"][0]["categoryCode"] == "TRAVEL"
+
+
+@pytest.mark.asyncio
+async def test_update_transaction_expense_data_partial_fields(extend, mocker, mock_transaction):
+    mock_response = {
+        "transaction": {
+            **mock_transaction,
+            "supplier": {"name": "Partial Supplier", "id": "sup_partial"}
+        }
+    }
+
+    mocker.patch.object(
+        extend._api_client,
+        'patch',
+        return_value=mock_response
+    )
+
+    response = await extend.transactions.update_transaction_expense_data(
+        transaction_id=mock_transaction["id"],
+        data={
+            "supplier": {"name": "Partial Supplier", "id": "sup_partial"},
+        }
+    )
+
+    assert response["transaction"]["supplier"]["name"] == "Partial Supplier"
+    assert "customer" not in response["transaction"] or response["transaction"]["customer"] is None
+
+
+@pytest.mark.asyncio
+async def test_update_transaction_expense_data_error_handling(extend, mocker, mock_transaction):
+    error_response = mocker.Mock()
+    error_response.status_code = 400
+
+    async def mock_error_patch(*args, **kwargs):
+        raise httpx.HTTPStatusError(
+            message="Bad Request",
+            request=mocker.Mock(),
+            response=error_response
+        )
+
+    mocker.patch.object(extend._api_client, 'patch', side_effect=mock_error_patch)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await extend.transactions.update_transaction_expense_data(
+            transaction_id=mock_transaction["id"],
+            data={"supplier": {"name": "Invalid", "id": None}}
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_expense_categories(extend, mocker):
+    mock_response: Any = {
+        "expenseCategories": [
+            {"id": "cat_1", "name": "Category 1"},
+            {"id": "cat_2", "name": "Category 2"}
+        ]
+    }
+
+    mocker.patch.object(extend._api_client, 'get', return_value=mock_response)
+
+    response = await extend.expense_data.get_expense_categories(active=True, required=False, search="cat")
+    assert len(response["expenseCategories"]) == 2
+    assert response["expenseCategories"][0]["name"] == "Category 1"
+
+
+@pytest.mark.asyncio
+async def test_get_expense_category(extend, mocker):
+    mock_response: Any = {
+        "id": "cat_123",
+        "name": "Test Category"
+    }
+
+    mocker.patch.object(extend._api_client, 'get', return_value=mock_response)
+
+    response = await extend.expense_data.get_expense_category("cat_123")
+    assert response["id"] == "cat_123"
+    assert response["name"] == "Test Category"
+
+
+@pytest.mark.asyncio
+async def test_get_expense_category_labels(extend, mocker):
+    mock_response: Any = {
+        "expenseLabels": [
+            {"id": "lbl_1", "name": "Label 1"},
+            {"id": "lbl_2", "name": "Label 2"}
+        ],
+        "pagination": {"page": 1, "pageItemCount": 2}
+    }
+
+    mocker.patch.object(extend._api_client, 'get', return_value=mock_response)
+
+    response = await extend.expense_data.get_expense_category_labels(
+        category_id="cat_123",
+        page=1,
+        per_page=10,
+        active=True,
+        search="Label"
+    )
+
+    assert "expenseLabels" in response
+    assert len(response["expenseLabels"]) == 2
+    assert response["expenseLabels"][0]["name"] == "Label 1"
+
+
+@pytest.mark.asyncio
+async def test_create_expense_category(extend, mocker):
+    mock_response: Any = {
+        "id": "cat_new",
+        "name": "New Category"
+    }
+
+    mocker.patch.object(extend._api_client, 'post', return_value=mock_response)
+
+    response = await extend.expense_data.create_expense_category(
+        name="New Category",
+        code="NEWCODE",
+        required=True,
+        active=True,
+        free_text_allowed=True,
+        integrator_enabled=True,
+        integrator_field_number=42
+    )
+
+    assert response["id"] == "cat_new"
+    assert response["name"] == "New Category"
+
+
+@pytest.mark.asyncio
+async def test_create_expense_category_label(extend, mocker):
+    mock_response: Any = {
+        "id": "label_new",
+        "name": "New Label"
+    }
+
+    mocker.patch.object(extend._api_client, 'post', return_value=mock_response)
+
+    response = await extend.expense_data.create_expense_category_label(
+        category_id="cat_123",
+        name="New Label",
+        code="LBL123",
+        active=True
+    )
+
+    assert response["id"] == "label_new"
+    assert response["name"] == "New Label"
+
+
+@pytest.mark.asyncio
+async def test_update_expense_category(extend, mocker):
+    mock_response: Any = {
+        "id": "cat_123",
+        "name": "Updated Category",
+        "active": False
+    }
+
+    mocker.patch.object(extend._api_client, 'patch', return_value=mock_response)
+
+    response = await extend.expense_data.update_expense_category(
+        category_id="cat_123",
+        name="Updated Category",
+        active=False
+    )
+
+    assert response["name"] == "Updated Category"
+    assert response["active"] is False
+
+
+@pytest.mark.asyncio
+async def test_update_expense_category_label(extend, mocker):
+    mock_response: Any = {
+        "id": "lbl_123",
+        "name": "Updated Label",
+        "active": True
+    }
+
+    mocker.patch.object(extend._api_client, 'patch', return_value=mock_response)
+
+    response = await extend.expense_data.update_expense_category_label(
+        category_id="cat_123",
+        label_id="lbl_123",
+        name="Updated Label",
+        active=True
+    )
+
+    assert response["name"] == "Updated Label"
+    assert response["active"] is True

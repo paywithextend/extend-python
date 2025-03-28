@@ -49,3 +49,21 @@ class CreditCards(Resource):
         params = {k: v for k, v in params.items() if v is not None}
 
         return await self._request(method="get", params=params)
+
+    async def get_credit_card_detail(
+            self,
+            card_id: str
+    ) -> Dict:
+        """Get detailed information about a specific credit card.
+
+        Args:
+            card_id (str): The unique identifier of the credit card
+
+        Returns:
+            Dict: A dictionary containing the credit card details:
+
+        Raises:
+            httpx.HTTPError: If the request fails
+        """
+
+        return await self._request(method="get", path=f"/{card_id}")

@@ -202,6 +202,85 @@ class TestRecurringCards:
         assert close_response["virtualCard"]["status"] == "CLOSED"
 
 
+@pytest.mark.integration
+class TestExpenseData:
+    """Integration tests for expense category and label operations"""
+
+    @pytest.mark.asyncio
+    async def test_create_update_category_and_label(self, extend):
+        # Create a new expense category
+        category_resp = await extend.expense_data.create_expense_category(
+            name="Integration Test Category",
+            code="INTEG-CAT",
+            required=True,
+            active=True,
+            free_text_allowed=True,
+            integrator_enabled=True,
+            integrator_field_number=999
+        )
+
+        category_id = category_resp["id"]
+        assert category_resp["name"] == "Integration Test Category"
+        assert category_resp["code"] == "INTEG-CAT"
+
+        # Update the category
+        updated_category = await extend.expense_data.update_expense_category(
+            category_id=category_id,
+            name="Updated Integration Category",
+            active=False
+        )
+
+        assert updated_category["name"] == "Updated Integration Category"
+        assert updated_category["active"] is False
+
+        # Create a label under the category
+        label_resp = await extend.expense_data.create_expense_category_label(
+            category_id=category_id,
+            name="Integration Label",
+            code="INTEG-LABEL",
+            active=True
+        )
+
+        label_id = label_resp["id"]
+        assert label_resp["name"] == "Integration Label"
+        assert label_resp["code"] == "INTEG-LABEL"
+
+        # Update the label
+        updated_label = await extend.expense_data.update_expense_category_label(
+            category_id=category_id,
+            label_id=label_id,
+            name="Updated Label Name",
+            active=False
+        )
+
+        assert updated_label["name"] == "Updated Label Name"
+        assert updated_label["active"] is False
+
+    @pytest.mark.asyncio
+    async def test_get_expense_categories_and_labels(self, extend):
+        # List categories
+        categories = await extend.expense_data.get_expense_categories(active=True)
+        assert isinstance(categories, dict)
+        assert "expenseCategories" in categories
+
+        # If categories exist, fetch one and its labels
+        if categories["expenseCategories"]:
+            cat_id = categories["expenseCategories"][0]["id"]
+
+            # Get single category
+            category = await extend.expense_data.get_expense_category(cat_id)
+            assert category["id"] == cat_id
+
+            # List labels
+            labels = await extend.expense_data.get_expense_category_labels(
+                category_id=cat_id,
+                page=1,
+                per_page=10
+            )
+            assert isinstance(labels, dict)
+            assert "expenseLabels" in labels
+
+
 def test_environment_variables():
     """Test that required environment variables are set"""
     assert os.getenv("EXTEND_API_KEY"), "EXTEND_API_KEY environment variable is required"

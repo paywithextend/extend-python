@@ -137,8 +137,8 @@ class VirtualCards(Resource):
     async def update_virtual_card(
             self,
             card_id: str,
+            display_name: str,
             balance_cents: int,
-            display_name: Optional[str] = None,
             notes: Optional[str] = None,
             valid_from: Optional[str] = None,
             valid_to: Optional[str] = None
