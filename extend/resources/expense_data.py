@@ -113,8 +113,6 @@ class ExpenseData(Resource):
             required: bool,
             active: Optional[bool] = None,
             free_text_allowed: Optional[bool] = None,
-            integrator_enabled: Optional[bool] = None,
-            integrator_field_number: Optional[int] = None,
     ) -> Dict:
         """Create an expense category.
 
@@ -124,8 +122,6 @@ class ExpenseData(Resource):
             required (bool): Whether this field is required for all users
             active (Optional[bool]): Whether this category is active and available for input
             free_text_allowed (Optional[bool]): Whether free text input is allowed
-            integrator_enabled (Optional[bool]): Whether this category is integrator enabled
-            integrator_field_number (Optional[int]): Field number used by the integrator
 
         Returns:
             Dict: A dictionary containing the newly created expense category
@@ -140,12 +136,11 @@ class ExpenseData(Resource):
             "required": required,
             "active": active,
             "freeTextAllowed": free_text_allowed,
-            "integratorEnabled": integrator_enabled,
-            "integratorFieldNumber": integrator_field_number,
         }
 
         return await self._request(
             method="post",
+            path='/categories',
             params=payload
         )
 
@@ -178,7 +173,7 @@ class ExpenseData(Resource):
 
         return await self._request(
             method="post",
-            path=f"/{category_id}",
+            path=f"/categories/{category_id}/labels",
             params=payload
         )
 
@@ -189,8 +184,6 @@ class ExpenseData(Resource):
             active: Optional[bool] = None,
             required: Optional[bool] = None,
             free_text_allowed: Optional[bool] = None,
-            integrator_enabled: Optional[bool] = None,
-            integrator_field_number: Optional[int] = None,
     ) -> Dict:
         """Update the an expense category.
 
@@ -200,8 +193,6 @@ class ExpenseData(Resource):
             active (Optional[bool]): Whether the category is active
             required (Optional[bool]): Whether this field is required for all users
             free_text_allowed (Optional[bool]): Whether free text input is allowed
-            integrator_enabled (Optional[bool]): Whether this category is integrator enabled
-            integrator_field_number (Optional[int]): Field number used by the integrator
 
         Returns:
             Dict: A dictionary containing the updated expense category details
@@ -215,13 +206,11 @@ class ExpenseData(Resource):
             "active": active,
             "required": required,
             "freeTextAllowed": free_text_allowed,
-            "integratorEnabled": integrator_enabled,
-            "integratorFieldNumber": integrator_field_number,
         }
 
         return await self._request(
             method="patch",
-            path=f"/{category_id}",
+            path=f"/categories/{category_id}",
             params=payload
         )
 
@@ -254,6 +243,6 @@ class ExpenseData(Resource):
 
         return await self._request(
             method="patch",
-            path=f"/{category_id}/labels/{label_id}",
+            path=f"/categories/{category_id}/labels/{label_id}",
             params=payload
         )

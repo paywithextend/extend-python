@@ -1,4 +1,5 @@
 import os
+import uuid
 from datetime import datetime, timedelta
 
 import pytest
@@ -209,51 +210,72 @@ class TestExpenseData:
     @pytest.mark.asyncio
     async def test_create_update_category_and_label(self, extend):
         # Create a new expense category
+        u = uuid.uuid4()
+        name = f"Integration Test Category {u}"
+        code = f"INTEG-CAT-{u}"
         category_resp = await extend.expense_data.create_expense_category(
-            name="Integration Test Category",
-            code="INTEG-CAT",
+            name=name,
+            code=code,
             required=True,
             active=True,
-            free_text_allowed=True,
-            integrator_enabled=True,
-            integrator_field_number=999
+            free_text_allowed=False,
         )
 
         category_id = category_resp["id"]
-        assert category_resp["name"] == "Integration Test Category"
-        assert category_resp["code"] == "INTEG-CAT"
+        assert category_resp["name"] == name
+        assert category_resp["code"] == code
+
+        # re-fetch newly created expense category
+        category = await extend.expense_data.get_expense_category(category_id)
+        assert category_resp["name"] == name
+        assert category_resp["code"] == code
 
         # Update the category
+        updated_name = f"Updated Integration Category {u}"
         updated_category = await extend.expense_data.update_expense_category(
             category_id=category_id,
-            name="Updated Integration Category",
+            name=updated_name,
             active=False
         )
 
-        assert updated_category["name"] == "Updated Integration Category"
+        assert updated_category["name"] == updated_name
         assert updated_category["active"] is False
 
         # Create a label under the category
-        label_resp = await extend.expense_data.create_expense_category_label(
+        u1 = uuid.uuid4()
+        label_name_one = f"Integration Label {u1}"
+        label_code_one = f"INTEG-LABEL-{u1}"
+        u2 = uuid.uuid4()
+        label_name_two = f"Integration Label {u2}"
+        label_code_two = f"INTEG-LABEL-{u2}"
+
+        label_resp_one = await extend.expense_data.create_expense_category_label(
             category_id=category_id,
-            name="Integration Label",
-            code="INTEG-LABEL",
+            name=label_name_one,
+            code=label_code_one,
             active=True
         )
 
-        label_id = label_resp["id"]
-        assert label_resp["name"] == "Integration Label"
-        assert label_resp["code"] == "INTEG-LABEL"
+        label_resp_two = await extend.expense_data.create_expense_category_label(
+            category_id=category_id,
+            name=label_name_two,
+            code=label_code_two,
+            active=True
+        )
+
+        label_id = label_resp_one["id"]
+        assert label_resp_one["name"] == label_name_one
+        assert label_resp_one["code"] == label_code_one
 
         # Update the label
         updated_label = await extend.expense_data.update_expense_category_label(
             category_id=category_id,
             label_id=label_id,
-            name="Updated Label Name",
+            name=f"Updated Label Name {u1}",
             active=False
         )
 
-        assert updated_label["name"] == "Updated Label Name"
+        assert updated_label["name"] == f"Updated Label Name {u1}"
         assert updated_label["active"] is False
 
     @pytest.mark.asyncio

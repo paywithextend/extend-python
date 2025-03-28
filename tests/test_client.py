@@ -533,9 +533,7 @@ async def test_create_expense_category(extend, mocker):
         code="NEWCODE",
         required=True,
         active=True,
-        free_text_allowed=True,
-        integrator_enabled=True,
-        integrator_field_number=42
+        free_text_allowed=False,
     )
 
     assert response["id"] == "cat_new"
