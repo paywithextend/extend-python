@@ -389,10 +389,8 @@ async def test_update_transaction_expense_data_success(extend, mocker, mock_tran
     mock_response = {
         "transaction": {
             **mock_transaction,
-            "supplier": {"name": "Acme Inc", "id": "sup_123"},
-            "customer": {"name": "Client A", "id": "cust_456"},
-            "expenseCategories": [
-                {"categoryCode": "TRAVEL", "labelCode": "TAXI"}
+            "expenseDetails": [
+                {"categoryId": "ec_1234", "labelId": "ecl_1234"}
             ]
         }
     }
@@ -406,15 +404,11 @@ async def test_update_transaction_expense_data_success(extend, mocker, mock_tran
     response = await extend.transactions.update_transaction_expense_data(
         transaction_id=mock_transaction["id"],
         data={
-            "supplier": {"name": "Acme Inc", "id": "sup_123"},
-            "customer": {"name": "Client A", "id": "cust_456"},
-            "expenseCategories": [{"categoryCode": "TRAVEL", "labelCode": "TAXI"}]
+            "expenseDetails": [{"categoryId": "ec_1234", "labelId": "ecl_1234"}]
         }
     )
 
-    assert response["transaction"]["supplier"]["name"] == "Acme Inc"
-    assert response["transaction"]["customer"]["id"] == "cust_456"
-    assert response["transaction"]["expenseCategories"][0]["categoryCode"] == "TRAVEL"
+    assert response["transaction"]["expenseDetails"][0]["categoryId"] == "ec_1234"
 
 
 @pytest.mark.asyncio

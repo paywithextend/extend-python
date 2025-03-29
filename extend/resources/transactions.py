@@ -84,20 +84,12 @@ class Transactions(Resource):
             data (Dict): A dictionary representing the expense data to update, should match
                          the schema:
                          {
-                             "supplier": {
-                                 "name": "Some Supplier",
-                                 "id": "supplier-id"
-                             },
-                             "expenseCategories": [
+                             "expenseDetails": [
                                  {
-                                     "categoryCode": "COMPCODE",
-                                     "labelCode": "ABC123"
+                                     "categoryId": "ec_1234",
+                                     "labelId": "ecl_1234"
                                  }
                              ],
-                             "customer": {
-                                 "name": "Some Customer",
-                                 "id": "customer-id"
-                             }
                          }
 
         Returns:
