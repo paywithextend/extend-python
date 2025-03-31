@@ -20,7 +20,9 @@ class Resource:
             self,
             method: str,
             path: str = None,
-            params: Optional[Dict] = None
+            params: Optional[Dict] = None,
+            data: Optional[Dict[str, Any]] = None,
+            files: Optional[Dict[str, Any]] = None,
     ) -> Any:
         if params is not None:
             params = {k: v for k, v in params.items() if v is not None}
@@ -33,6 +35,12 @@ class Resource:
                 return await self._api_client.put(self.build_full_path(path), params)
             case "patch":
                 return await self._api_client.patch(self.build_full_path(path), params)
+            case "post_multipart":
+                return await self._api_client.post_multipart(
+                    self.build_full_path(path),
+                    data=data,
+                    files=files
+                )
             case _:
                 raise ValueError(f"Unsupported HTTP method: {method}")
 

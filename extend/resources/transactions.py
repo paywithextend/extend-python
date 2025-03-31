@@ -22,6 +22,7 @@ class Transactions(Resource):
             min_amount_cents: Optional[int] = None,
             max_amount_cents: Optional[int] = None,
             search_term: Optional[str] = None,
+            sort_field: Optional[str] = None,
     ) -> Dict:
         """Get a list of transactions with optional filtering and pagination.
 
@@ -34,6 +35,9 @@ class Transactions(Resource):
             min_amount_cents (int): Minimum clearing amount in cents
             max_amount_cents (int): Maximum clearing amount in cents
             search_term (Optional[str]): Filter cards by search term (e.g., "Marketing")
+            sort_field (Optional[str]): Field to sort by, with optional direction
+                                    Use "recipientName", "merchantName", "amount", "date" for ASC
+                                    Use "-recipientName", "-merchantName", "-amount", "-date" for DESC
 
         Returns:
             Dict: A dictionary containing:
@@ -57,8 +61,8 @@ class Transactions(Resource):
             "minClearingBillingCents": min_amount_cents,
             "maxClearingBillingCents": max_amount_cents,
             "search": search_term,
+            "sort": sort_field,
         }
-        params = {k: v for k, v in params.items() if v is not None}
 
         return await self._request(method="get", params=params)
 

@@ -21,6 +21,8 @@ class VirtualCards(Resource):
             status: Optional[str] = None,
             recipient: Optional[str] = None,
             search_term: Optional[str] = None,
+            sort_field: Optional[str] = None,
+            sort_direction: Optional[str] = None,
     ) -> Dict:
         """Get a list of virtual cards with optional filtering and pagination.
 
@@ -30,6 +32,8 @@ class VirtualCards(Resource):
             status (Optional[str]): Filter cards by status (e.g., "ACTIVE", "CANCELLED")
             recipient (Optional[str]): Filter cards by recipient id (e.g., "u_1234")
             search_term (Optional[str]): Filter cards by search term (e.g., "Marketing")
+            sort_field (Optional[str]): Field to sort by "createdAt", "updatedAt", "balanceCents", "displayName", "type", or "status"
+            sort_direction (Optional[str]): Direction to sort (ASC or DESC)
 
         Returns:
             Dict: A dictionary containing:
@@ -49,8 +53,9 @@ class VirtualCards(Resource):
             "statuses": status,
             "recipient": recipient,
             "search": search_term,
+            "sortField": sort_field,
+            "sortDirection": sort_direction,
         }
-        params = {k: v for k, v in params.items() if v is not None}
 
         return await self._request(method="get", params=params)
 
