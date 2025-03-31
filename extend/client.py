@@ -148,5 +148,41 @@ class APIClient:
             response.raise_for_status()
             return response.json()
 
+    async def post_multipart(
+            self,
+            url: str,
+            data: Optional[Dict[str, Any]] = None,
+            files: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Make a POST request with multipart/form-data payload.
+
+        This method is designed to support file uploads along with optional form data.
+
+        Args:
+            url (str): The API endpoint path (e.g., "/receiptattachments")
+            data (Optional[Dict[str, Any]]): Optional form fields to include in the request.
+            files (Optional[Dict[str, Any]]): Files to be uploaded. For example,
+                {"file": file_obj} where file_obj is an open file in binary mode.
+
+        Returns:
+            The JSON response from the API.
+
+        Raises:
+            httpx.HTTPError: If the request fails.
+            ValueError: If the response is not valid JSON.
+        """
+        # When sending multipart data, we pass `data` (for non-file fields)
+        # and `files` (for file uploads) separately.
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                self.build_full_url(url),
+                headers=self.headers,
+                data=data,
+                files=files,
+                timeout=httpx.Timeout(30)
+            )
+            response.raise_for_status()
+            return response.json()
+
     def build_full_url(self, url: Optional[str]):
         return f"https://{API_HOST}{url or ''}"

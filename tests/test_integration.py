@@ -1,6 +1,7 @@
 import os
 import uuid
 from datetime import datetime, timedelta
+from io import BytesIO
 
 import pytest
 from dotenv import load_dotenv
@@ -129,6 +130,47 @@ class TestVirtualCards:
         for card in response["virtualCards"]:
             assert card["status"] == "CLOSED"
 
+    @pytest.mark.asyncio
+    async def test_list_virtual_cards_with_sorting(self, extend):
+        """Test listing virtual cards with various sorting options"""
+
+        # Test sorting by display name ascending
+        asc_response = await extend.virtual_cards.get_virtual_cards(
+            sort_field="displayName",
+            sort_direction="ASC",
+            per_page=50  # Ensure we get enough cards to compare
+        )
+
+        # Test sorting by display name descending
+        desc_response = await extend.virtual_cards.get_virtual_cards(
+            sort_field="displayName",
+            sort_direction="DESC",
+            per_page=50  # Ensure we get enough cards to compare
+        )
+
+        # Verify responses contain cards
+        assert "virtualCards" in asc_response
+        assert "virtualCards" in desc_response
+
+        # If sufficient cards exist, just verify the orders are different
+        # rather than trying to implement our own sorting logic
+        if len(asc_response["virtualCards"]) > 1 and len(desc_response["virtualCards"]) > 1:
+            asc_ids = [card["id"] for card in asc_response["virtualCards"]]
+            desc_ids = [card["id"] for card in desc_response["virtualCards"]]
+
+            # Verify the orders are different for different sort directions
+            assert asc_ids != desc_ids, "ASC and DESC sorting should produce different results"
+
+        # Test other sort fields
+        for field in ["createdAt", "updatedAt", "balanceCents", "status", "type"]:
+            # Test both directions for each field
+            for direction in ["ASC", "DESC"]:
+                response = await extend.virtual_cards.get_virtual_cards(
+                    sort_field=field,
+                    sort_direction=direction
+                )
+                assert "virtualCards" in response, f"Sorting by {field} {direction} should return virtual cards"
+
 
 @pytest.mark.integration
 class TestTransactions:
@@ -151,6 +193,54 @@ class TestTransactions:
             required_fields = ["id", "status", "virtualCardId", "merchantName", "type", "authBillingAmountCents"]
             for field in required_fields:
                 assert field in transaction, f"Transaction should contain '{field}' field"
+
+    @pytest.mark.asyncio
+    async def test_list_transactions_with_sorting(self, extend):
+        """Test listing transactions with various sorting options"""
+
+        # Define sort fields - positive for ASC, negative (prefixed with -) for DESC
+        sort_fields = [
+            "recipientName", "-recipientName",
+            "merchantName", "-merchantName",
+            "amount", "-amount",
+            "date", "-date"
+        ]
+
+        # Test each sort field
+        for sort_field in sort_fields:
+            # Get transactions with this sort
+            response = await extend.transactions.get_transactions(
+                sort_field=sort_field,
+                per_page=10
+            )
+
+            # Verify response contains transactions and basic structure
+            assert isinstance(response, dict), f"Response for sort {sort_field} should be a dictionary"
+            assert "transactions" in response, f"Response for sort {sort_field} should contain 'transactions' key"
+
+            # If we have enough data, test opposite sort direction for comparison
+            if len(response["transactions"]) > 1:
+                # Determine the field name and opposite sort field
+                is_desc = sort_field.startswith("-")
+                field_name = sort_field[1:] if is_desc else sort_field
+                opposite_sort = field_name if is_desc else f"-{field_name}"
+
+                # Get transactions with opposite sort
+                opposite_response = await extend.transactions.get_transactions(
+                    sort_field=opposite_sort,
+                    per_page=10
+                )
+
+                # Get IDs in both sort orders for comparison
+                sorted_ids = [tx["id"] for tx in response["transactions"]]
+                opposite_sorted_ids = [tx["id"] for tx in opposite_response["transactions"]]
+
+                # If we have the same set of transactions in both responses,
+                # verify that different sort directions produce different orders
+                if set(sorted_ids) == set(opposite_sorted_ids) and len(sorted_ids) > 1:
+                    assert sorted_ids != opposite_sorted_ids, (
+                        f"Different sort directions for {field_name} should produce different results"
+                    )
 
 
 @pytest.mark.integration
@@ -301,6 +391,98 @@ class TestExpenseData:
             )
             assert isinstance(labels, dict)
             assert "expenseLabels" in labels
+
+
+@pytest.mark.integration
+class TestTransactionExpenseData:
+    """Integration tests for updating transaction expense data using a specific expense category and label"""
+
+    @pytest.mark.asyncio
+    async def test_update_transaction_expense_data_with_specific_category_and_label(self, extend):
+        """Test updating the expense data for a transaction using a specific expense category and label."""
+        # Retrieve available expense categories (active ones)
+        categories_response = await extend.expense_data.get_expense_categories(active=True)
+        assert "expenseCategories" in categories_response, "Response should include 'expenseCategories'"
+        expense_categories = categories_response["expenseCategories"]
+        assert expense_categories, "No expense categories available for testing"
+
+        # For this test, pick the first expense category
+        category = expense_categories[0]
+        category_id = category["id"]
+
+        # Retrieve the labels for the chosen expense category
+        labels_response = await extend.expense_data.get_expense_category_labels(
+            category_id=category_id,
+            page=0,
+            per_page=10
+        )
+        assert "expenseLabels" in labels_response, "Response should include 'expenseLabels'"
+        expense_labels = labels_response["expenseLabels"]
+        assert expense_labels, "No expense labels available for the selected category"
+
+        # Pick the first label from the list
+        label = expense_labels[0]
+        label_id = label["id"]
+
+        # Retrieve at least one transaction to update expense data
+        transactions_response = await extend.transactions.get_transactions(per_page=1)
+        assert transactions_response.get("transactions"), "No transactions available for testing expense data update"
+        transaction = transactions_response["transactions"][0]
+        transaction_id = transaction["id"]
+
+        # Prepare the expense data payload with the specific category and label
+        update_payload = {
+            "expenseDetails": [
+                {
+                    "categoryId": category_id,
+                    "labelId": label_id
+                }
+            ]
+        }
+
+        # Call the update_transaction_expense_data method
+        response = await extend.transactions.update_transaction_expense_data(transaction_id, update_payload)
+
+        # Verify the response contains the transaction id and expected expense details
+        assert "id" in response, "Response should include the transaction id"
+        if "expenseDetails" in response:
+            # Depending on the API response, the structure might vary; adjust assertions accordingly
+            assert response["expenseDetails"] == update_payload["expenseDetails"], (
+                "Expense details in the response should match the update payload"
+            )
+
+
+@pytest.mark.integration
+class TestReceiptAttachments:
+    """Integration tests for receipt attachment operations"""
+
+    @pytest.mark.asyncio
+    async def test_create_receipt_attachment(self, extend):
+        """Test creating a receipt attachment via multipart upload."""
+        # Create a dummy PNG file in memory
+        # This is a minimal PNG header plus extra bytes to simulate file content.
+        png_header = b'\x89PNG\r\n\x1a\n'
+        dummy_content = png_header + b'\x00' * 100
+        file_obj = BytesIO(dummy_content)
+        # Optionally set a name attribute for file identification in the upload
+        file_obj.name = f"test_receipt_{uuid.uuid4()}.png"
+
+        # Retrieve a valid transaction id from existing transactions
+        transactions_response = await extend.transactions.get_transactions(page=0, per_page=1)
+        assert transactions_response.get("transactions"), "No transactions available for testing receipt attachment"
+        transaction_id = transactions_response["transactions"][0]["id"]
+
+        # Call the receipt attachment upload method
+        response = await extend.receipt_attachments.create_receipt_attachment(
+            transaction_id=transaction_id,
+            file=file_obj
+        )
+
+        # Assert that the response contains expected keys
+        assert "id" in response, "Receipt attachment should have an id"
+        assert "urls" in response, "Receipt attachment should include urls"
+        assert "contentType" in response, "Receipt attachment should include a content type"
+        assert response["contentType"] == "image/png", "Content type should be 'image/png'"
 
 
 def test_environment_variables():
