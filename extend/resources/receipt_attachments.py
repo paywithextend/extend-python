@@ -39,5 +39,5 @@ class ReceiptAttachments(Resource):
 
         return await self._request(
             method="post_multipart",
-            data={"transaction_id": transaction_id},
+            data={"transactionId": transaction_id},
             files={"file": file})
