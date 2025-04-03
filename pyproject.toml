@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "paywithextend"
-version = "0.1.0"
+version = "1.0.0"
 description = "Python client for the Extend API"
 readme = "README.md"
 authors = [{ name = "Extend Engineering", email = "support@paywithextend.com" }]

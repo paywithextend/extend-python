@@ -1,0 +1,7 @@
+.env export-ignore
+.git export-ignore
+.idea export-ignore
+.pytest_cache export-ignore
+.venv export-ignore
+venv export-ignore
+dist export-ignore
