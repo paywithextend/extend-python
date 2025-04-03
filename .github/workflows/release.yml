@@ -40,17 +40,7 @@ jobs:
           # Extract the version assuming a line like: version = "0.1.0"
           VERSION=$(grep -Po '^version\s*=\s*"\K[^"]+' pyproject.toml)
           echo "Version extracted: $VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Create Release Zip
-        run: |
-          zip -r release-${{ steps.get_version.outputs.version }}.zip . \
-          -x "*.git*" \
-          -x "*.env*" \
-          -x "*.idea*" \
-          -x "*.pytest_cache*" \
-          -x "*.venv*" \
-          -x "*dist*" \
+          echo "version=$VERSION" >> $GITHUB_OUTPUT  
 
       - name: Create GitHub Release
         id: create_release
@@ -62,16 +52,6 @@ jobs:
           release_name: v${{ steps.get_version.outputs.version }}
           draft: false
           prerelease: false
-
-      - name: Upload Release Zip Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-${{ steps.get_version.outputs.version }}.zip
-          asset_name: extend-python-${{ steps.get_version.outputs.version }}.zip
-          asset_content_type: application/zip
 
       - name: Install Twine
         run: |
