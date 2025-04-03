@@ -54,7 +54,7 @@ async def main():
 
     # Get all transactions
     response = await client.transactions.get_transactions()
-    print("Transactions:", response["transactions"])
+    print("Transactions:", response["report"]["transactions"])
 
 
 # Run the async function

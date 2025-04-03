@@ -71,7 +71,7 @@ class Transactions(Resource):
             "sort": sort_field,
         }
 
-        return await self._request(method="get", params=params)
+        return await self._request(method="get", params=params, base_url_override='/reports/transactions/v2')
 
     async def get_transaction(self, transaction_id: str) -> Dict:
         """Get detailed information about a specific transaction.

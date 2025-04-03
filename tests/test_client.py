@@ -250,13 +250,13 @@ async def test_cancel_and_close_virtual_card(extend, mocker, mock_virtual_card):
 @pytest.mark.asyncio
 async def test_get_transactions(extend, mocker, mock_transaction):
     mock_response: Any = {
-        "transactions": [mock_transaction, mock_transaction]
+        "report": {"transactions": [mock_transaction, mock_transaction]}
     }
 
     mocker.patch.object(extend._api_client, 'get', return_value=mock_response)
 
     response = await extend.transactions.get_transactions()
-    assert len(response["transactions"]) == 2
+    assert len(response["report"]["transactions"]) == 2
 
 
 # Additional recurrence validation tests

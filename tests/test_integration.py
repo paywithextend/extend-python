@@ -184,12 +184,13 @@ class TestTransactions:
 
         # Verify response structure
         assert isinstance(response, dict), "Response should be a dictionary"
-        assert "transactions" in response, "Response should contain 'transactions' key"
-        assert isinstance(response["transactions"], list), "Transactions should be a list"
+        assert "transactions" in response["report"], "Response should contain 'report' key"
+        assert isinstance(response["report"]["transactions"], list), "Transactions should be a list"
 
         # If there are transactions, verify their structure
-        if response["transactions"]:
-            transaction = response["transactions"][0]
+        if response["report"] and response["report"]['transactions']:
+            transactions = response["report"]['transactions']
+            transaction = transactions[0]
             required_fields = ["id", "status", "virtualCardId", "merchantName", "type", "authBillingAmountCents"]
             for field in required_fields:
                 assert field in transaction, f"Transaction should contain '{field}' field"
@@ -216,10 +217,11 @@ class TestTransactions:
 
             # Verify response contains transactions and basic structure
             assert isinstance(response, dict), f"Response for sort {sort_field} should be a dictionary"
-            assert "transactions" in response, f"Response for sort {sort_field} should contain 'transactions' key"
+            assert "report" in response, f"Response for sort {sort_field} should contain 'report' key"
+            assert "transactions" in response["report"], f"Report should contain 'transactions' key"
 
             # If we have enough data, test opposite sort direction for comparison
-            if len(response["transactions"]) > 1:
+            if len(response["report"]["transactions"]) > 1:
                 # Determine the field name and opposite sort field
                 is_desc = sort_field.startswith("-")
                 field_name = sort_field[1:] if is_desc else sort_field
@@ -232,8 +234,8 @@ class TestTransactions:
                 )
 
                 # Get IDs in both sort orders for comparison
-                sorted_ids = [tx["id"] for tx in response["transactions"]]
-                opposite_sorted_ids = [tx["id"] for tx in opposite_response["transactions"]]
+                sorted_ids = [tx["id"] for tx in response["report"]["transactions"]]
+                opposite_sorted_ids = [tx["id"] for tx in opposite_response["report"]["transactions"]]
 
                 # If we have the same set of transactions in both responses,
                 # verify that different sort directions produce different orders
@@ -469,8 +471,9 @@ class TestReceiptAttachments:
 
         # Retrieve a valid transaction id from existing transactions
         transactions_response = await extend.transactions.get_transactions(page=0, per_page=1)
-        assert transactions_response.get("transactions"), "No transactions available for testing receipt attachment"
-        transaction_id = transactions_response["transactions"][0]["id"]
+        assert transactions_response["report"][
+            "transactions"], "No transactions available for testing receipt attachment"
+        transaction_id = transactions_response["report"]["transactions"][0]["id"]
 
         # Call the receipt attachment upload method
         response = await extend.receipt_attachments.create_receipt_attachment(
