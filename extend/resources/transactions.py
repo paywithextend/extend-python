@@ -37,7 +37,7 @@ class Transactions(Resource):
             virtual_card_id (str): Filter by specific virtual card
             min_amount_cents (int): Minimum clearing amount in cents
             max_amount_cents (int): Maximum clearing amount in cents
-            search_term (Optional[str]): Filter cards by search term (e.g., "Marketing")
+            search_term (Optional[str]): Filter transactions by search term (e.g., "Subscription")
             sort_field (Optional[str]): Field to sort by, with optional direction
                                     Use "recipientName", "merchantName", "amount", "date" for ASC
                                     Use "-recipientName", "-merchantName", "-amount", "-date" for DESC
