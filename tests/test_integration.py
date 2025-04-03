@@ -402,34 +402,41 @@ class TestTransactionExpenseData:
     @pytest.mark.asyncio
     async def test_update_transaction_expense_data_with_specific_category_and_label(self, extend):
         """Test updating the expense data for a transaction using a specific expense category and label."""
-        # Retrieve available expense categories (active ones)
-        categories_response = await extend.expense_data.get_expense_categories(active=True)
-        assert "expenseCategories" in categories_response, "Response should include 'expenseCategories'"
-        expense_categories = categories_response["expenseCategories"]
-        assert expense_categories, "No expense categories available for testing"
-
-        # For this test, pick the first expense category
-        category = expense_categories[0]
-        category_id = category["id"]
-
-        # Retrieve the labels for the chosen expense category
-        labels_response = await extend.expense_data.get_expense_category_labels(
-            category_id=category_id,
-            page=0,
-            per_page=10
+        # Create a new expense category for testing
+        u = uuid.uuid4()
+        category_name = f"Integration Test Category {u}"
+        category_code = f"INTEG-CAT-{u}"
+        category_resp = await extend.expense_data.create_expense_category(
+            name=category_name,
+            code=category_code,
+            required=True,
+            active=True,
+            free_text_allowed=False,
         )
-        assert "expenseLabels" in labels_response, "Response should include 'expenseLabels'"
-        expense_labels = labels_response["expenseLabels"]
-        assert expense_labels, "No expense labels available for the selected category"
+        category_id = category_resp["id"]
+        assert category_resp["name"] == category_name
+        assert category_resp["code"] == category_code
 
-        # Pick the first label from the list
-        label = expense_labels[0]
-        label_id = label["id"]
+        # Create a label under the category
+        u1 = uuid.uuid4()
+        label_name = f"Integration Label {u1}"
+        label_code = f"INTEG-LABEL-{u1}"
+        label_resp = await extend.expense_data.create_expense_category_label(
+            category_id=category_id,
+            name=label_name,
+            code=label_code,
+            active=True
+        )
+        label_id = label_resp["id"]
+        assert label_resp["name"] == label_name
+        assert label_resp["code"] == label_code
 
         # Retrieve at least one transaction to update expense data
         transactions_response = await extend.transactions.get_transactions(per_page=1)
-        assert transactions_response.get("transactions"), "No transactions available for testing expense data update"
-        transaction = transactions_response["transactions"][0]
+        assert "report" in transactions_response, "Response should include 'report'"
+        assert "transactions" in transactions_response["report"], "Response should include 'transactions'"
+        assert transactions_response["report"]["transactions"], "No transactions available for testing expense data update"
+        transaction = transactions_response["report"]["transactions"][0]
         transaction_id = transaction["id"]
 
         # Prepare the expense data payload with the specific category and label
@@ -447,11 +454,10 @@ class TestTransactionExpenseData:
 
         # Verify the response contains the transaction id and expected expense details
         assert "id" in response, "Response should include the transaction id"
-        if "expenseDetails" in response:
-            # Depending on the API response, the structure might vary; adjust assertions accordingly
-            assert response["expenseDetails"] == update_payload["expenseDetails"], (
-                "Expense details in the response should match the update payload"
-            )
+        assert "expenseDetails" in response, "Response should include expenseDetails"
+        assert len(response["expenseDetails"]) == 1, "Response should contain exactly one expense detail"
+        assert response["expenseDetails"][0]["categoryId"] == category_id, "Category ID should match"
+        assert response["expenseDetails"][0]["labelId"] == label_id, "Label ID should match"
 
 
 @pytest.mark.integration

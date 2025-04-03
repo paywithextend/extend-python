@@ -11,7 +11,7 @@ if env == "stage":
 elif env == "prod":
     from .config_prod import API_HOST, API_VERSION
 else:
-    from .config_stage import API_HOST, API_VERSION
+    from .config_prod import API_HOST, API_VERSION
 
 __all__ = [
     "API_HOST",
