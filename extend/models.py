@@ -2,6 +2,50 @@ from enum import Enum
 from typing import TypedDict, Literal, NotRequired
 
 
+class ValidatableEnum(Enum):
+    @classmethod
+    def is_valid(cls, value: str) -> bool:
+        try:
+            cls(value)
+            return True
+        except ValueError:
+            return False
+
+
+class CreditCardStatus(ValidatableEnum):
+    ACTIVE = "ACTIVE"
+    PENDING = "PENDING"
+    INACTIVE = "INACTIVE"
+    EXPIRED = "EXPIRED"
+    BLOCKED = "BLOCKED"
+    CLOSED = "CLOSED"
+
+
+class VirtualCardStatus(ValidatableEnum):
+    ACTIVE = "ACTIVE"
+    CANCELLED = "CANCELLED"
+    EXPIRED = "EXPIRED"
+    PENDING = "PENDING"
+    CLOSED = "CLOSED"
+    CONSUMED = "CONSUMED"
+
+
+class TransactionStatus(ValidatableEnum):
+    PENDING = "PENDING"
+    CLEARED = "CLEARED"
+    DECLINED = "DECLINED"
+    NO_MATCH = "NO_MATCH"
+    AVS_PASS = "AVS_PASS"
+    AVS_FAIL = "AVS_FAIL"
+    AUTH_REVERSAL = "AUTH_REVERSAL"
+
+
+class TransactionType(ValidatableEnum):
+    DEBIT = "DEBIT"
+    CREDIT = "CREDIT"
+    AVS = "AVS"
+
+
 class VirtualCard(TypedDict):
     """Type definition for Virtual Card data.
     

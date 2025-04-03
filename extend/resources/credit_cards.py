@@ -2,6 +2,7 @@ from typing import Dict, Optional
 
 from extend.client import APIClient
 from .resource import Resource
+from ..models import CreditCardStatus
 
 
 class CreditCards(Resource):
@@ -18,6 +19,7 @@ class CreditCards(Resource):
             per_page: Optional[int] = None,
             status: Optional[str] = None,
             search_term: Optional[str] = None,
+            sort_direction: Optional[str] = None,
     ) -> Dict:
         """Get a list of all credit cards associated with your account.
 
@@ -26,6 +28,7 @@ class CreditCards(Resource):
             per_page (Optional[int]): Number of items per page
             status (Optional[str]): Filter cards by status (e.g., "ACTIVE", "CANCELLED")
             search_term (Optional[str]): Filter cards by search term (e.g., "Marketing")
+            sort_direction (Optional[str]): Direction to sort (ASC or DESC)
 
         Returns:
             Dict: A dictionary containing:
@@ -40,13 +43,16 @@ class CreditCards(Resource):
             httpx.HTTPError: If the request fails
         """
 
+        if status and not CreditCardStatus.is_valid(status.upper()):
+            raise ValueError(f"{status} is not a valid status")
+
         params = {
             "page": page,
             "count": per_page,
-            "statuses": status,
+            "statuses": status.upper() if status else None,
             "search": search_term,
+            "sortDirection": sort_direction,
         }
-        params = {k: v for k, v in params.items() if v is not None}
 
         return await self._request(method="get", params=params)
 
