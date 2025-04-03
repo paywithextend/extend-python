@@ -26,7 +26,7 @@ For detailed API documentation, please visit our [Stoplight documentation](https
 ### From PyPI
 
 ```bash
-pip install extend-python
+pip install paywithextend
 ```
 
 ### From Source
