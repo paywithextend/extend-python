@@ -1,7 +1,7 @@
 from typing import Optional, Dict
 
 from extend.client import APIClient
-from extend.models import CardCreationRequest
+from extend.models import CardCreationRequest, VirtualCardStatus
 from extend.validations import validate_card_creation_data, validate_card_update_data
 from .resource import Resource
 
@@ -29,7 +29,7 @@ class VirtualCards(Resource):
         Args:
             page (Optional[int]): The page number for pagination (1-based)
             per_page (Optional[int]): Number of items per page
-            status (Optional[str]): Filter cards by status (e.g., "ACTIVE", "CANCELLED")
+            status (Optional[str]): Filter cards by status (e.g., "ACTIVE", "CANCELLED", "PENDING", "EXPIRED", "CLOSED", "CONSUMED")
             recipient (Optional[str]): Filter cards by recipient id (e.g., "u_1234")
             search_term (Optional[str]): Filter cards by search term (e.g., "Marketing")
             sort_field (Optional[str]): Field to sort by "createdAt", "updatedAt", "balanceCents", "displayName", "type", or "status"
@@ -47,10 +47,14 @@ class VirtualCards(Resource):
         Raises:
             httpx.HTTPError: If the request fails
         """
+
+        if status and not VirtualCardStatus.is_valid(status.upper()):
+            raise ValueError(f"{status} is not a valid status")
+
         params = {
             "page": page,
             "count": per_page,
-            "statuses": status,
+            "statuses": status.upper() if status else None,
             "recipient": recipient,
             "search": search_term,
             "sortField": sort_field,

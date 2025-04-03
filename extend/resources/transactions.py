@@ -2,6 +2,7 @@ from typing import Optional, Dict
 
 from extend.client import APIClient
 from .resource import Resource
+from ..models import TransactionStatus
 
 
 class Transactions(Resource):
@@ -18,6 +19,7 @@ class Transactions(Resource):
             per_page: Optional[int] = None,
             from_date: Optional[str] = None,
             to_date: Optional[str] = None,
+            status: Optional[str] = None,
             virtual_card_id: Optional[str] = None,
             min_amount_cents: Optional[int] = None,
             max_amount_cents: Optional[int] = None,
@@ -31,6 +33,7 @@ class Transactions(Resource):
             per_page (Optional[int]): Number of items per page
             from_date (Optional[str]): Start date in YYYY-MM-DD format
             to_date (Optional[str]): End date in YYYY-MM-DD format
+            status (Optional[str]): Filter transactions by status (e.g., "PENDING", "CLEARED", "DECLINED", "NO_MATCH", "AVS_PASS", "AVS_FAIL", "AUTH_REVERSAL")
             virtual_card_id (str): Filter by specific virtual card
             min_amount_cents (int): Minimum clearing amount in cents
             max_amount_cents (int): Maximum clearing amount in cents
@@ -52,11 +55,15 @@ class Transactions(Resource):
             httpx.HTTPError: If the request fails
         """
 
+        if status and not TransactionStatus.is_valid(status.upper()):
+            raise ValueError(f"{status} is not a valid status")
+
         params = {
             "page": page,
             "count": per_page,
             "fromDate": from_date,
             "toDate": to_date,
+            "statuses": status.upper() if status else None,
             "virtualCardId": virtual_card_id,
             "minClearingBillingCents": min_amount_cents,
             "maxClearingBillingCents": max_amount_cents,

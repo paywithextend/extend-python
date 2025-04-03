@@ -2,6 +2,7 @@ from typing import Dict, Optional
 
 from extend.client import APIClient
 from .resource import Resource
+from ..models import CreditCardStatus
 
 
 class CreditCards(Resource):
@@ -40,10 +41,13 @@ class CreditCards(Resource):
             httpx.HTTPError: If the request fails
         """
 
+        if status and not CreditCardStatus.is_valid(status.upper()):
+            raise ValueError(f"{status} is not a valid status")
+
         params = {
             "page": page,
             "count": per_page,
-            "statuses": status,
+            "statuses": status.upper() if status else None,
             "search": search_term,
         }
         params = {k: v for k, v in params.items() if v is not None}
