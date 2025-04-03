@@ -116,7 +116,7 @@ To run integration tests, make sure you have set up the required environment var
 
 ## Contributing
 
-We welcome contributions from the community! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting a Pull Request.
+We welcome contributions from the community! 
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
