@@ -3,6 +3,7 @@ from .client import APIClient
 from .resources.credit_cards import CreditCards
 from .resources.expense_data import ExpenseData
 from .resources.receipt_attachments import ReceiptAttachments
+from .resources.receipt_capture import ReceiptCapture
 from .resources.transactions import Transactions
 
 
@@ -33,3 +34,4 @@ class ExtendClient:
         self.transactions = Transactions(self._api_client)
         self.expense_data = ExpenseData(self._api_client)
         self.receipt_attachments = ReceiptAttachments(self._api_client)
+        self.receipt_capture = ReceiptCapture(self._api_client)

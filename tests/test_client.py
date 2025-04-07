@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Dict, List
 
 import httpx
 import pytest
@@ -593,3 +593,59 @@ async def test_update_expense_category_label(extend, mocker):
 
     assert response["name"] == "Updated Label"
     assert response["active"] is True
+
+
+@pytest.mark.asyncio
+async def test_automatch_receipts(extend, mocker):
+    """
+    Test that the automatch_receipts endpoint returns the expected job and task details.
+    """
+    mock_response: Dict[str, Any] = {
+        "id": "job_123",
+        "tasks": [
+            {
+                "id": "task_1",
+                "status": "PENDING",
+                "receiptAttachmentId": "ra_123",
+                "transactionId": None,
+                "attachmentsCount": 0
+            }
+        ]
+    }
+
+    mocker.patch.object(extend._api_client, 'post', return_value=mock_response)
+    receipt_attachment_ids: List[str] = ["ra_123"]
+
+    response = await extend.receipt_capture.automatch_receipts(
+        receipt_attachment_ids=receipt_attachment_ids
+    )
+
+    assert response["id"] == "job_123"
+    assert len(response["tasks"]) == 1
+    assert response["tasks"][0]["receiptAttachmentId"] == "ra_123"
+
+
+@pytest.mark.asyncio
+async def test_get_automatch_status(extend, mocker):
+    """
+    Test that the get_automatch_status endpoint returns the current job status and task details.
+    """
+    mock_response: Dict[str, Any] = {
+        "id": "job_123",
+        "tasks": [
+            {
+                "id": "task_1",
+                "status": "COMPLETED",
+                "receiptAttachmentId": "ra_123",
+                "transactionId": "txn_123",
+                "attachmentsCount": 1
+            }
+        ]
+    }
+
+    mocker.patch.object(extend._api_client, 'get', return_value=mock_response)
+    response = await extend.receipt_capture.get_automatch_status("job_123")
+
+    assert response["id"] == "job_123"
+    assert len(response["tasks"]) == 1
+    assert response["tasks"][0]["transactionId"] == "txn_123"

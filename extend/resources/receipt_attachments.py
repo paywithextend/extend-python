@@ -1,4 +1,4 @@
-from typing import Dict, IO
+from typing import Dict, IO, Optional
 
 from extend.client import APIClient
 from .resource import Resource
@@ -14,15 +14,15 @@ class ReceiptAttachments(Resource):
 
     async def create_receipt_attachment(
             self,
-            transaction_id: str,
             file: IO,
+            transaction_id: Optional[str] = None,
     ) -> Dict:
         """Create a receipt attachment for a transaction by uploading a file using multipart form data.
 
         Args:
-            transaction_id (str): The unique identifier of the transaction to attach the receipt to
             file (IO): A file-like object opened in binary mode that contains the data
                        to be uploaded
+            transaction_id (Optional[str]): The optional unique identifier of the transaction to attach the receipt to
 
         Returns:
             Dict: A dictionary representing the receipt attachment, including:
@@ -39,5 +39,5 @@ class ReceiptAttachments(Resource):
 
         return await self._request(
             method="post_multipart",
-            data={"transactionId": transaction_id},
+            data={"transactionId": transaction_id} if transaction_id else None,
             files={"file": file})
