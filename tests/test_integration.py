@@ -435,7 +435,8 @@ class TestTransactionExpenseData:
         transactions_response = await extend.transactions.get_transactions(per_page=1)
         assert "report" in transactions_response, "Response should include 'report'"
         assert "transactions" in transactions_response["report"], "Response should include 'transactions'"
-        assert transactions_response["report"]["transactions"], "No transactions available for testing expense data update"
+        assert transactions_response["report"][
+            "transactions"], "No transactions available for testing expense data update"
         transaction = transactions_response["report"]["transactions"][0]
         transaction_id = transaction["id"]
 
@@ -492,6 +493,46 @@ class TestReceiptAttachments:
         assert "urls" in response, "Receipt attachment should include urls"
         assert "contentType" in response, "Receipt attachment should include a content type"
         assert response["contentType"] == "image/png", "Content type should be 'image/png'"
+
+
+@pytest.mark.integration
+class TestReceiptCaptureEndpoints:
+    """Integration tests for the new receipt capture endpoints"""
+
+    @pytest.mark.asyncio
+    async def test_automatch_receipts_and_get_status(self, extend):
+        """
+        Integration test that:
+          1. Creates a dummy receipt attachment for an existing transaction.
+          2. Initiates an automatch job using the new endpoint.
+          3. Retrieves and verifies the automatch job status.
+        """
+        # Create a dummy PNG file in memory (a minimal PNG header plus extra bytes)
+        png_header = b'\x89PNG\r\n\x1a\n'
+        dummy_content = png_header + b'\x00' * 100
+        file_obj = BytesIO(dummy_content)
+        file_obj.name = f"test_receipt_{uuid.uuid4()}.png"
+
+        # Create a receipt attachment using the receipt_attachments endpoint
+        attachment_response = await extend.receipt_attachments.create_receipt_attachment(
+            file=file_obj
+        )
+        assert "id" in attachment_response, "Receipt attachment should have an id"
+        receipt_attachment_id = attachment_response["id"]
+
+        # Initiate an automatch job using the new receipt capture endpoint
+        automatch_response = await extend.receipt_capture.automatch_receipts(
+            receipt_attachment_ids=[receipt_attachment_id]
+        )
+        assert "id" in automatch_response, "Automatch response should include a job id"
+        assert "tasks" in automatch_response, "Automatch response should include tasks"
+        job_id = automatch_response["id"]
+
+        # Retrieve the automatch job status using the new endpoint
+        status_response = await extend.receipt_capture.get_automatch_status(job_id)
+        assert "id" in status_response, "Status response should include a job id"
+        assert status_response["id"] == job_id, "Job id should match the one returned during automatch"
+        assert "tasks" in status_response, "Status response should include tasks"
 
 
 def test_environment_variables():
