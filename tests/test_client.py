@@ -649,3 +649,17 @@ async def test_get_automatch_status(extend, mocker):
     assert response["id"] == "job_123"
     assert len(response["tasks"]) == 1
     assert response["tasks"][0]["transactionId"] == "txn_123"
+
+
+@pytest.mark.asyncio
+async def test_send_receipt_reminder(extend, mocker, mock_transaction):
+    mock_post = mocker.patch.object(
+        extend._api_client,
+        'post',
+        return_value=None
+    )
+
+    result = await extend.transactions.send_receipt_reminder(mock_transaction["id"])
+
+    assert result is None
+    mock_post.assert_called_once_with("/transactions/txn_123/receiptreminder", None)
