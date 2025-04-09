@@ -114,3 +114,20 @@ class Transactions(Resource):
             path=f"/{transaction_id}/expensedata",
             params=data
         )
+
+    async def send_receipt_reminder(self, transaction_id: str) -> Dict:
+        """Send a transaction-specific receipt reminder.
+
+        Args:
+            transaction_id (str): The unique identifier of the transaction.
+
+        Returns:
+            None
+
+        Raises:
+            httpx.HTTPError: If the request fails.
+        """
+        return await self._request(
+            method="post",
+            path=f"/{transaction_id}/receiptreminder"
+        )
