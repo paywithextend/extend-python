@@ -8,6 +8,7 @@ version = "1.1.0"
 description = "Python client for the Extend API"
 readme = "README.md"
 authors = [{ name = "Extend Engineering", email = "support@paywithextend.com" }]
+dynamic = ["version"]
 license = { text = "MIT" }
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -25,6 +26,9 @@ dependencies = [
 [project.urls]
 "Issue Tracker" = "https://github.com/paywithextend/extend-python/issues"
 "Source Code" = "https://github.com/paywithextend/extend-python"
+
+[tool.hatch.version]
+path = "extend/__version__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["extend"]
