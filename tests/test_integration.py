@@ -432,7 +432,7 @@ class TestTransactionExpenseData:
         assert label_resp["code"] == label_code
 
         # Retrieve at least one transaction to update expense data
-        transactions_response = await extend.transactions.get_transactions(per_page=1)
+        transactions_response = await extend.transactions.get_transactions(per_page=1, sort_field="-date")
         assert "report" in transactions_response, "Response should include 'report'"
         assert "transactions" in transactions_response["report"], "Response should include 'transactions'"
         assert transactions_response["report"][
@@ -533,6 +533,29 @@ class TestReceiptCaptureEndpoints:
         assert "id" in status_response, "Status response should include a job id"
         assert status_response["id"] == job_id, "Job id should match the one returned during automatch"
         assert "tasks" in status_response, "Status response should include tasks"
+
+    @pytest.mark.asyncio
+    async def test_send_receipt_reminder(self, extend):
+        """Test sending a receipt reminder for a transaction that requires a receipt."""
+
+        # Fetch a page of transactions and look for one that requires a receipt
+        response = await extend.transactions.get_transactions(per_page=20, sort_field='-date')
+        transactions = response.get("report", {}).get("transactions", [])
+
+        # Find a transaction with receiptRequired = True
+        tx_with_receipt_required = next(
+            (tx for tx in transactions if tx.get("receiptRequired") is True),
+            None
+        )
+
+        assert tx_with_receipt_required, "No transactions found with receiptRequired = True"
+        transaction_id = tx_with_receipt_required["id"]
+
+        # Send receipt reminder
+        result = await extend.transactions.send_receipt_reminder(transaction_id)
+
+        # The call should succeed and return None
+        assert result is None
 
 
 def test_environment_variables():
