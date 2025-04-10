@@ -66,15 +66,7 @@ class APIClient:
             httpx.HTTPError: If the request fails
             ValueError: If the response is not valid JSON
         """
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                self.build_full_url(url),
-                headers=self.headers,
-                params=params,
-                timeout=httpx.Timeout(30)
-            )
-            response.raise_for_status()
-            return response.json()
+        return await self._send_request("GET", url, params=params)
 
     async def post(self, url: str, data: Dict) -> Any:
         """Make a POST request to the Extend API.
@@ -90,15 +82,7 @@ class APIClient:
             httpx.HTTPError: If the request fails
             ValueError: If the response is not valid JSON
         """
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                self.build_full_url(url),
-                headers=self.headers,
-                json=data,
-                timeout=httpx.Timeout(30)
-            )
-            response.raise_for_status()
-            return response.json()
+        return await self._send_request("POST", url, json=data)
 
     async def put(self, url: str, data: Dict) -> Any:
         """Make a PUT request to the Extend API.
@@ -114,15 +98,7 @@ class APIClient:
             httpx.HTTPError: If the request fails
             ValueError: If the response is not valid JSON
         """
-        async with httpx.AsyncClient() as client:
-            response = await client.put(
-                self.build_full_url(url),
-                headers=self.headers,
-                json=data,
-                timeout=httpx.Timeout(30)
-            )
-            response.raise_for_status()
-            return response.json()
+        return await self._send_request("PUT", url, json=data)
 
     async def patch(self, url: str, data: Dict) -> Any:
         """Make a PATCH request to the Extend API.
@@ -138,15 +114,7 @@ class APIClient:
             httpx.HTTPError: If the request fails
             ValueError: If the response is not valid JSON
         """
-        async with httpx.AsyncClient() as client:
-            response = await client.patch(
-                self.build_full_url(url),
-                headers=self.headers,
-                json=data,
-                timeout=httpx.Timeout(30)
-            )
-            response.raise_for_status()
-            return response.json()
+        return await self._send_request("PATCH", url, json=data)
 
     async def post_multipart(
             self,
@@ -173,16 +141,34 @@ class APIClient:
         """
         # When sending multipart data, we pass `data` (for non-file fields)
         # and `files` (for file uploads) separately.
+        return await self._send_request("POST", url, data=data, files=files)
+
+    def build_full_url(self, url: Optional[str]):
+        return f"https://{API_HOST}{url or ''}"
+
+    async def _send_request(
+            self,
+            method: str,
+            url: str,
+            *,
+            params: Optional[Dict] = None,
+            json: Optional[Dict] = None,
+            data: Optional[Dict] = None,
+            files: Optional[Dict] = None
+    ) -> Any:
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                self.build_full_url(url),
+            response = await client.request(
+                method=method.upper(),
+                url=self.build_full_url(url),
                 headers=self.headers,
+                params=params,
+                json=json,
                 data=data,
                 files=files,
                 timeout=httpx.Timeout(30)
             )
             response.raise_for_status()
-            return response.json()
 
-    def build_full_url(self, url: Optional[str]):
-        return f"https://{API_HOST}{url or ''}"
+            if response.content:
+                return response.json()
+            return None
