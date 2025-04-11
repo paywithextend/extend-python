@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timedelta
 from io import BytesIO
 
+import httpx
 import pytest
 from dotenv import load_dotenv
 
@@ -182,18 +183,32 @@ class TestTransactions:
         # Get transactions
         response = await extend.transactions.get_transactions()
 
-        # Verify response structure
-        assert isinstance(response, dict), "Response should be a dictionary"
-        assert "transactions" in response["report"], "Response should contain 'report' key"
-        assert isinstance(response["report"]["transactions"], list), "Transactions should be a list"
+        transactions = get_transactions_from_response(response)
+        transaction = transactions[0]
+        required_fields = ["id", "status", "virtualCardId", "merchantName", "type", "authBillingAmountCents"]
+        for field in required_fields:
+            assert field in transaction, f"Transaction should contain '{field}' field"
 
-        # If there are transactions, verify their structure
-        if response["report"] and response["report"]['transactions']:
-            transactions = response["report"]['transactions']
-            transaction = transactions[0]
-            required_fields = ["id", "status", "virtualCardId", "merchantName", "type", "authBillingAmountCents"]
-            for field in required_fields:
-                assert field in transaction, f"Transaction should contain '{field}' field"
+    @pytest.mark.asyncio
+    async def test_get_transactions_receipt_missing_filter(self, extend):
+        """Test that filtering transactions by receipt_required works."""
+        response = await extend.transactions.get_transactions(receipt_missing=True)
+        transactions = get_transactions_from_response(response)
+
+        if transactions:
+            for transaction in transactions:
+                assert (
+                        transaction.get("attachmentsCount") is 0 and transaction.get("receiptRequired") is True
+                ), f"Transaction {transaction.get('id')} should have 0 attachments if receiptRequired is True"
+
+        response = await extend.transactions.get_transactions(receipt_missing=False)
+        transactions = get_transactions_from_response(response)
+
+        if transactions:
+            for transaction in transactions:
+                assert (
+                        transaction.get("attachmentsCount") is not 0 or transaction.get("receiptRequired") is False
+                ), f"Transaction {transaction.get('id')} should have more than 0 attachments if receiptRequired is True"
 
     @pytest.mark.asyncio
     async def test_list_transactions_with_sorting(self, extend):
@@ -215,13 +230,10 @@ class TestTransactions:
                 per_page=10
             )
 
-            # Verify response contains transactions and basic structure
-            assert isinstance(response, dict), f"Response for sort {sort_field} should be a dictionary"
-            assert "report" in response, f"Response for sort {sort_field} should contain 'report' key"
-            assert "transactions" in response["report"], f"Report should contain 'transactions' key"
+            transactions = get_transactions_from_response(response)
 
             # If we have enough data, test opposite sort direction for comparison
-            if len(response["report"]["transactions"]) > 1:
+            if len(transactions) > 1:
                 # Determine the field name and opposite sort field
                 is_desc = sort_field.startswith("-")
                 field_name = sort_field[1:] if is_desc else sort_field
@@ -539,7 +551,7 @@ class TestReceiptCaptureEndpoints:
         """Test sending a receipt reminder for a transaction that requires a receipt."""
 
         # Fetch a page of transactions and look for one that requires a receipt
-        response = await extend.transactions.get_transactions(per_page=20, sort_field='-date')
+        response = await extend.transactions.get_transactions(per_page=20, sort_field='-date', receipt_missing=True)
         transactions = response.get("report", {}).get("transactions", [])
 
         # Find a transaction with receiptRequired = True
@@ -551,11 +563,21 @@ class TestReceiptCaptureEndpoints:
         assert tx_with_receipt_required, "No transactions found with receiptRequired = True"
         transaction_id = tx_with_receipt_required["id"]
 
-        # Send receipt reminder
-        result = await extend.transactions.send_receipt_reminder(transaction_id)
+        try:
+            # Send receipt reminder
+            result = await extend.transactions.send_receipt_reminder(transaction_id)
+            # The call should succeed and return None
+            assert result is None
+        except httpx.HTTPStatusError as exc:
+            # Check that the status code in the raised exception is 429.
+            assert exc.response.status_code == 429
 
-        # The call should succeed and return None
-        assert result is None
+
+def get_transactions_from_response(response):
+    assert isinstance(response, dict), "Response should be a dictionary"
+    assert "report" in response, "Response should contain a 'report' key"
+    assert "transactions" in response["report"], "Report should contain 'transactions'"
+    return response["report"]["transactions"]
 
 
 def test_environment_variables():
