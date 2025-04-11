@@ -23,6 +23,7 @@ class Transactions(Resource):
             virtual_card_id: Optional[str] = None,
             min_amount_cents: Optional[int] = None,
             max_amount_cents: Optional[int] = None,
+            receipt_missing: Optional[bool] = None,
             search_term: Optional[str] = None,
             sort_field: Optional[str] = None,
     ) -> Dict:
@@ -38,6 +39,7 @@ class Transactions(Resource):
             min_amount_cents (int): Minimum clearing amount in cents
             max_amount_cents (int): Maximum clearing amount in cents
             search_term (Optional[str]): Filter transactions by search term (e.g., "Subscription")
+            receipt_missing (Optional[bool]): Filter transactions by missing receipts
             sort_field (Optional[str]): Field to sort by, with optional direction
                                     Use "recipientName", "merchantName", "amount", "date" for ASC
                                     Use "-recipientName", "-merchantName", "-amount", "-date" for DESC
@@ -67,6 +69,7 @@ class Transactions(Resource):
             "virtualCardId": virtual_card_id,
             "minClearingBillingCents": min_amount_cents,
             "maxClearingBillingCents": max_amount_cents,
+            "receiptMissing": receipt_missing,
             "search": search_term,
             "sort": sort_field,
         }
