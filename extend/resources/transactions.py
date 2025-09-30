@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, Sequence, List
 
 from extend.client import APIClient
 from .resource import Resource
@@ -19,13 +19,14 @@ class Transactions(Resource):
             per_page: Optional[int] = None,
             from_date: Optional[str] = None,
             to_date: Optional[str] = None,
-            status: Optional[str] = None,
+            status: Optional[Sequence[str]] = None,
             virtual_card_id: Optional[str] = None,
             min_amount_cents: Optional[int] = None,
             max_amount_cents: Optional[int] = None,
             receipt_missing: Optional[bool] = None,
             search_term: Optional[str] = None,
             sort_field: Optional[str] = None,
+            missing_expense_categories: Optional[bool] = None,
     ) -> Dict:
         """Get a list of transactions with optional filtering and pagination.
 
@@ -34,7 +35,7 @@ class Transactions(Resource):
             per_page (Optional[int]): Number of items per page
             from_date (Optional[str]): Start date in YYYY-MM-DD format
             to_date (Optional[str]): End date in YYYY-MM-DD format
-            status (Optional[str]): Filter transactions by status (e.g., "PENDING", "CLEARED", "DECLINED", "NO_MATCH", "AVS_PASS", "AVS_FAIL", "AUTH_REVERSAL")
+            status (Optional[Sequence[str]]): Filter transactions by one or more statuses (e.g., "PENDING", "CLEARED", "DECLINED", "NO_MATCH", "AVS_PASS", "AVS_FAIL", "AUTH_REVERSAL").
             virtual_card_id (str): Filter by specific virtual card
             min_amount_cents (int): Minimum clearing amount in cents
             max_amount_cents (int): Maximum clearing amount in cents
@@ -43,6 +44,7 @@ class Transactions(Resource):
             sort_field (Optional[str]): Field to sort by, with optional direction
                                     Use "recipientName", "merchantName", "amount", "date" for ASC
                                     Use "-recipientName", "-merchantName", "-amount", "-date" for DESC
+            missing_expense_categories (Optional[bool]): Filter transactions that are missing required expense categories
 
         Returns:
             Dict: A dictionary containing:
@@ -57,19 +59,35 @@ class Transactions(Resource):
             httpx.HTTPError: If the request fails
         """
 
-        if status and not TransactionStatus.is_valid(status.upper()):
-            raise ValueError(f"{status} is not a valid status")
+        normalized_statuses: Optional[List[str]] = None
+        if status:
+            status_values = [status] if isinstance(status, str) else list(status)
+            normalized_statuses = []
+            invalid_statuses = []
+            for status_value in status_values:
+                normalized_value = status_value.upper()
+                if TransactionStatus.is_valid(normalized_value):
+                    normalized_statuses.append(normalized_value)
+                else:
+                    invalid_statuses.append(status_value)
+            if invalid_statuses:
+                invalid_list = ", ".join(invalid_statuses)
+                raise ValueError(f"{invalid_list} is not a valid status")
+            if not normalized_statuses:
+                normalized_statuses = None
 
         params = {
             "page": page,
-            "count": per_page,
-            "fromDate": from_date,
-            "toDate": to_date,
-            "statuses": status.upper() if status else None,
+            "perPage": per_page,
+            "since": from_date,
+            "until": to_date,
+            "status": normalized_statuses,
             "virtualCardId": virtual_card_id,
             "minClearingBillingCents": min_amount_cents,
             "maxClearingBillingCents": max_amount_cents,
             "receiptMissing": receipt_missing,
+            "receiptStatus": ["Missing"] if receipt_missing else None,
+            "expenseCategoryStatuses": ["Missing"] if missing_expense_categories else None,
             "search": search_term,
             "sort": sort_field,
         }
