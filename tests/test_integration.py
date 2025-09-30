@@ -2,6 +2,7 @@ import os
 import uuid
 from datetime import datetime, timedelta
 from io import BytesIO
+from typing import Dict, Optional
 
 import httpx
 import pytest
@@ -255,6 +256,109 @@ class TestTransactions:
                     assert sorted_ids != opposite_sorted_ids, (
                         f"Different sort directions for {field_name} should produce different results"
                     )
+
+    @pytest.mark.asyncio
+    async def test_list_transactions_with_status_filter(self, extend):
+        """Ensure status filtering supports single and multiple values."""
+
+        baseline_response = await extend.transactions.get_transactions(per_page=20)
+        baseline_transactions = get_transactions_from_response(baseline_response)
+
+        if not baseline_transactions:
+            pytest.skip("No transactions available to validate status filtering")
+
+        unique_statuses = {tx["status"] for tx in baseline_transactions if tx.get("status")}
+
+        if not unique_statuses:
+            pytest.skip("Transactions are missing status values for validation")
+
+        single_status = next(iter(unique_statuses))
+
+        # List using a single status value in a sequence
+        single_response = await extend.transactions.get_transactions(status=[single_status])
+        single_transactions = get_transactions_from_response(single_response)
+        if single_transactions:
+            for transaction in single_transactions:
+                assert transaction.get("status") == single_status
+
+        # List using multiple status values when available
+        if len(unique_statuses) > 1:
+            multi_statuses = list(unique_statuses)[:2]
+            multi_response = await extend.transactions.get_transactions(status=multi_statuses)
+            multi_transactions = get_transactions_from_response(multi_response)
+            allowed_statuses = set(multi_statuses)
+            if multi_transactions:
+                for transaction in multi_transactions:
+                    assert transaction.get("status") in allowed_statuses
+
+    @pytest.mark.asyncio
+    async def test_list_transactions_with_date_filters(self, extend):
+        """Validate since/until filters constrain transaction authedAt timestamps."""
+
+        baseline_response = await extend.transactions.get_transactions(per_page=50, sort_field='-date')
+        baseline_transactions = get_transactions_from_response(baseline_response)
+
+        if not baseline_transactions:
+            pytest.skip("No transactions available to validate date filters")
+
+        def _parse_timestamp(raw: str) -> datetime:
+            try:
+                return datetime.strptime(raw, "%Y-%m-%dT%H:%M:%S.%f%z")
+            except ValueError:
+                return datetime.strptime(raw, "%Y-%m-%d")
+
+        def _extract_transaction_datetime(tx: Dict) -> Optional[datetime]:
+            authed_at = tx.get("authedAt")
+            if isinstance(authed_at, str):
+                try:
+                    return _parse_timestamp(authed_at)
+                except ValueError:
+                    return None
+            return None
+
+        parsed_dates = [dt for tx in baseline_transactions if (dt := _extract_transaction_datetime(tx)) is not None]
+
+        if not parsed_dates:
+            pytest.skip("Transactions do not include parsable authedAt values for validation")
+
+        parsed_dates.sort()
+        unique_dates = sorted({dt.date() for dt in parsed_dates})
+
+        since_date = unique_dates[0]
+        if len(unique_dates) > 1:
+            since_date = unique_dates[1]
+
+        until_date = unique_dates[-1]
+        if len(unique_dates) > 1:
+            until_date = unique_dates[-2]
+
+        since_response = await extend.transactions.get_transactions(from_date=since_date.isoformat(), per_page=50)
+        since_transactions = get_transactions_from_response(since_response)
+        if since_transactions:
+            for transaction in since_transactions:
+                parsed = _extract_transaction_datetime(transaction)
+                assert parsed is not None
+                assert parsed.date() >= since_date
+
+        until_response = await extend.transactions.get_transactions(to_date=until_date.isoformat(), per_page=50)
+        until_transactions = get_transactions_from_response(until_response)
+        if until_transactions:
+            for transaction in until_transactions:
+                parsed = _extract_transaction_datetime(transaction)
+                assert parsed is not None
+                assert parsed.date() <= until_date
+
+        range_response = await extend.transactions.get_transactions(
+            from_date=since_date.isoformat(),
+            to_date=until_date.isoformat(),
+            per_page=50
+        )
+        range_transactions = get_transactions_from_response(range_response)
+        if range_transactions:
+            for transaction in range_transactions:
+                parsed = _extract_transaction_datetime(transaction)
+                assert parsed is not None
+                assert since_date <= parsed.date() <= until_date
 
 
 @pytest.mark.integration
