@@ -259,6 +259,37 @@ async def test_get_transactions(extend, mocker, mock_transaction):
     assert len(response["report"]["transactions"]) == 2
 
 
+@pytest.mark.asyncio
+async def test_get_transactions_receipt_missing_param(extend, mocker, mock_transaction):
+    mock_response: Any = {
+        "report": {"transactions": [mock_transaction]}
+    }
+
+    mock_get = mocker.patch.object(extend._api_client, 'get', return_value=mock_response)
+
+    await extend.transactions.get_transactions(receipt_missing=True)
+
+    assert mock_get.call_count == 1
+    _, params = mock_get.call_args[0]
+    assert params["receiptMissing"] is True
+    assert params["receiptStatus"] == "Missing"
+
+
+@pytest.mark.asyncio
+async def test_get_transactions_missing_expense_categories_param(extend, mocker, mock_transaction):
+    mock_response: Any = {
+        "report": {"transactions": [mock_transaction]}
+    }
+
+    mock_get = mocker.patch.object(extend._api_client, 'get', return_value=mock_response)
+
+    await extend.transactions.get_transactions(missing_expense_categories=True)
+
+    assert mock_get.call_count == 1
+    _, params = mock_get.call_args[0]
+    assert params["expenseCategoryStatuses"] == ["Missing"]
+
+
 # Additional recurrence validation tests
 def test_validate_recurrence_data_monthly(extend):
     # Test valid monthly recurrence
