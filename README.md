@@ -42,13 +42,16 @@ pip install -e .
 ```python
 import asyncio
 from extend import ExtendClient
+from extend.auth import BasicAuth
 
 
 async def main():
     # Initialize the client
     client = ExtendClient(
-        api_key="your-api-key",
-        api_secret="your-api-secret"
+        auth=BasicAuth(
+            "your-api-key",
+            "your-api-secret",
+        )
     )
 
     # Get all virtual cards
@@ -62,6 +65,27 @@ async def main():
 
 # Run the async function
 asyncio.run(main())
+```
+
+### Using Custom Authorization
+
+Both `ExtendClient` and `APIClient` accept reusable authorization strategies defined in `extend.auth`, enabling scenarios like JWT-based access or shared credentials across clients.
+
+```python
+from extend import ExtendClient
+from extend.auth import BearerAuth
+
+auth = BearerAuth(jwt_token="your-jwt-token")
+client = ExtendClient(auth=auth)
+```
+
+If you want to work with the lower-level `APIClient` directly, you can pass any `Authorization` implementation:
+
+```python
+from extend.auth import BasicAuth
+from extend.client import APIClient
+
+api_client = APIClient(auth=BasicAuth("your-api-key", "your-api-secret"))
 ```
 
 ## Environment Variables

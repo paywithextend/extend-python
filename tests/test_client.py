@@ -1,3 +1,4 @@
+import base64
 import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
@@ -7,14 +8,41 @@ import pytest
 from dotenv import load_dotenv
 
 from extend import VirtualCard, Transaction, validations, ExtendClient
+from extend.auth import BearerAuth, BasicAuth
+from extend.client import APIClient
+from extend.config import API_VERSION
 
 load_dotenv()
+
+
+def test_api_client_accepts_auth_instance():
+    auth = BearerAuth(jwt_token="test-token")
+    client = APIClient(auth=auth)
+
+    assert client.headers["Authorization"] == "Bearer test-token"
+    assert client.headers["Accept"] == API_VERSION
+
+
+def test_api_client_basic_auth_from_keys():
+    auth = BasicAuth("key", "secret")
+    client = APIClient(auth=auth)
+
+    expected_basic = base64.b64encode(b"key:secret").decode()
+    assert client.headers["x-extend-api-key"] == "key"
+    assert client.headers["Authorization"] == f"Basic {expected_basic}"
+
+
+def test_api_client_requires_auth_instance():
+    with pytest.raises(TypeError):
+        APIClient()
 
 
 @pytest.fixture(scope="session")
 def extend():
     # Initialize the API client
-    return ExtendClient(os.getenv("EXTEND_API_KEY"), os.getenv("EXTEND_API_SECRET"))
+    api_key = os.getenv("EXTEND_API_KEY", "test-key")
+    api_secret = os.getenv("EXTEND_API_SECRET", "test-secret")
+    return ExtendClient(auth=BasicAuth(api_key, api_secret))
 
 
 @pytest.fixture
@@ -272,7 +300,7 @@ async def test_get_transactions_receipt_missing_param(extend, mocker, mock_trans
     assert mock_get.call_count == 1
     _, params = mock_get.call_args[0]
     assert params["receiptMissing"] is True
-    assert params["receiptStatus"] == "Missing"
+    assert params["receiptStatus"] == ["Missing"]
 
 
 @pytest.mark.asyncio
