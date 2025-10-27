@@ -4,13 +4,14 @@ import os
 from dotenv import load_dotenv
 
 from extend import ExtendClient
+from extend.auth import BasicAuth
 
 load_dotenv()
 
 # Initialize the client
 api_key = os.getenv("EXTEND_API_KEY")
 api_secret = os.getenv("EXTEND_API_SECRET")
-extend = ExtendClient(api_key, api_secret)
+extend = ExtendClient(auth=BasicAuth(api_key, api_secret))
 
 
 async def test_virtual_cards():
