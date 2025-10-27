@@ -1,4 +1,5 @@
 from extend.resources.virtual_cards import VirtualCards
+from .auth import Authorization
 from .client import APIClient
 from .resources.credit_cards import CreditCards
 from .resources.expense_data import ExpenseData
@@ -11,24 +12,24 @@ class ExtendClient:
     """Wrapper around Extend API
 
     Args:
-        api_key (str): Your Extend API key
-        api_secret (str): Your Extend API secret
+        auth (Authorization): Authorization instance shared with the internal API client.
 
     Example:
         ```python
-        extend = ExtendClient(api_key="your_key", api_secret="your_secret")
+        from extend.auth import BasicAuth
+
+        extend = ExtendClient(auth=BasicAuth("your_key", "your_secret"))
         cards = await extend.get_virtual_cards()
         ```
     """
 
-    def __init__(self, api_key: str, api_secret: str):
+    def __init__(self, auth: Authorization):
         """Initialize the Extend Client.
 
         Args:
-            api_key (str): Your Extend API key
-            api_secret (str): Your Extend API secret
+            auth (Authorization): Authorization strategy shared with the underlying API client.
         """
-        self._api_client = APIClient(api_key=api_key, api_secret=api_secret)
+        self._api_client = APIClient(auth=auth)
         self.credit_cards = CreditCards(self._api_client)
         self.virtual_cards = VirtualCards(self._api_client)
         self.transactions = Transactions(self._api_client)

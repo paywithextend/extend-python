@@ -1,52 +1,45 @@
-import base64
 from typing import Optional, Dict, Any
 
 import httpx
 
-from .config import API_HOST, API_VERSION
+from .auth import Authorization
+from .config import API_HOST
 
 
 class APIClient:
     """Client for interacting with the Extend API.
 
     Args:
-        api_key (str): Your Extend API key
-        api_secret (str): Your Extend API secret
+        auth (Authorization): Authorization strategy that yields request headers.
         
     Example:
         ```python
-        client = ExtendAPI(api_key="your_key", api_secret="your_secret")
+        from extend.auth import BasicAuth
+
+        client = APIClient(auth=BasicAuth("your_key", "your_secret"))
         cards = await client.get_virtual_cards()
         ```
     """
 
     _shared_instance: Optional["APIClient"] = None
 
-    def __init__(self, api_key: str, api_secret: str):
+    def __init__(self, auth: Authorization):
         """Initialize the Extend API client.
-        
+
         Args:
-            api_key (str): Your Extend API key
-            api_secret (str): Your Extend API secret
+            auth (Authorization): Authorization strategy to use for requests.
         """
-        auth_value = base64.b64encode(f"{api_key}:{api_secret}".encode()).decode()
-        self.headers = {
-            "x-extend-api-key": api_key,
-            "Authorization": f"Basic {auth_value}",
-            "Accept": API_VERSION
-        }
+        headers = dict(auth.get_auth_headers())
+
+        self._auth = auth
+        self.headers = headers
 
     @classmethod
-    def shared_instance(cls, api_key: Optional[str] = None, api_secret: Optional[str] = None) -> "APIClient":
-        """
-        Returns a singleton instance of APIClient. On first call, you must provide both
-        api_key and api_secret. Subsequent calls return the same instance.
-        """
+    def shared_instance(cls, auth: Authorization) -> "APIClient":
+        """Returns a singleton instance of APIClient using the provided authorization."""
         if cls._shared_instance is None:
-            if api_key is None or api_secret is None:
-                raise ValueError("API key and API secret must be provided on the first call to global_instance.")
-            cls._global_instance = cls(api_key, api_secret)
-        return cls._global_instance
+            cls._shared_instance = cls(auth=auth)
+        return cls._shared_instance
 
     # ----------------------------------------
     # HTTP Methods

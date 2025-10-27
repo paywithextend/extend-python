@@ -9,6 +9,7 @@ import pytest
 from dotenv import load_dotenv
 
 from extend import ExtendClient
+from extend.auth import BasicAuth
 
 load_dotenv()
 
@@ -29,7 +30,7 @@ def extend():
     """Create a real API client for integration testing"""
     api_key = os.getenv("EXTEND_API_KEY")
     api_secret = os.getenv("EXTEND_API_SECRET")
-    return ExtendClient(api_key, api_secret)
+    return ExtendClient(auth=BasicAuth(api_key, api_secret))
 
 
 @pytest.fixture(scope="session")
