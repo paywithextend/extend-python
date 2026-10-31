@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import TypedDict, Literal, NotRequired
+from typing import Literal, NotRequired, TypedDict
 
 
 class ValidatableEnum(Enum):

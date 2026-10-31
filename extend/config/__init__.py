@@ -1,19 +1,19 @@
+"""Explicit environment selection; importing this module has no side effects."""
 import os
 
-from dotenv import load_dotenv
+API_VERSION = "application/vnd.paywithextend.v2021-03-12+json"
+API_HOSTS = {
+    "stage": "apiv2-stage.paywithextend.com",
+    "prod": "apiv2.paywithextend.com",
+}
 
-load_dotenv()
 
-env = os.getenv("ENV", "dev")
+def resolve_environment(environment: str | None = None) -> str:
+    """Resolve an explicitly selected environment, never defaulting to production."""
+    selected = environment if environment is not None else os.environ.get("ENV")
+    if selected not in API_HOSTS:
+        raise ValueError("Choose environment='stage' or environment='prod' (or set ENV explicitly)")
+    return selected
 
-if env == "stage":
-    from .config_stage import API_HOST, API_VERSION
-elif env == "prod":
-    from .config_prod import API_HOST, API_VERSION
-else:
-    from .config_prod import API_HOST, API_VERSION
 
-__all__ = [
-    "API_HOST",
-    "API_VERSION"
-]
+__all__ = ["API_VERSION", "API_HOSTS", "resolve_environment"]

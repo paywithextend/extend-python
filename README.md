@@ -2,7 +2,7 @@
 
 Python library for the Extend API
 
-[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Documentation](https://img.shields.io/badge/docs-stoplight-blue)](https://paywithextend.stoplight.io/)
@@ -39,6 +39,9 @@ pip install -e .
 
 ## Quick Start
 
+Version 3 requires explicit environment selection and client cleanup. See
+[the migration guide](MIGRATION.md) for security and compatibility changes.
+
 ```python
 import asyncio
 from extend import ExtendClient
@@ -47,20 +50,15 @@ from extend.auth import BasicAuth
 
 async def main():
     # Initialize the client
-    client = ExtendClient(
+    async with ExtendClient(
         auth=BasicAuth(
             "your-api-key",
             "your-api-secret",
-        )
-    )
-
-    # Get all virtual cards
-    response = await client.virtual_cards.get_virtual_cards()
-    print("Virtual Cards:", response["virtualCards"])
-
-    # Get all transactions
-    response = await client.transactions.get_transactions()
-    print("Transactions:", response["report"]["transactions"])
+        ),
+        environment="stage",
+    ) as client:
+        response = await client.virtual_cards.get_virtual_cards()
+        # Handle the result in your application; avoid logging financial payloads.
 
 
 # Run the async function
@@ -76,7 +74,8 @@ from extend import ExtendClient
 from extend.auth import BearerAuth
 
 auth = BearerAuth(jwt_token="your-jwt-token")
-client = ExtendClient(auth=auth)
+client = ExtendClient(auth=auth, environment="stage")
+# await client.aclose() when finished, or prefer async with.
 ```
 
 If you want to work with the lower-level `APIClient` directly, you can pass any `Authorization` implementation:
@@ -85,7 +84,8 @@ If you want to work with the lower-level `APIClient` directly, you can pass any 
 from extend.auth import BasicAuth
 from extend.client import APIClient
 
-api_client = APIClient(auth=BasicAuth("your-api-key", "your-api-secret"))
+api_client = APIClient(auth=BasicAuth("your-api-key", "your-api-secret"), environment="stage")
+# await api_client.aclose() when finished.
 ```
 
 ## Environment Variables
@@ -118,14 +118,9 @@ The following environment variables are required for integration tests and examp
 
 4. Run tests:
    ```bash
-   # Run all tests
-   pytest
-   
-   # Run only unit tests
-   pytest tests/test_client.py
-   
-   # Run only integration tests
-   pytest tests/test_integration.py
+   # Focused security and transport tests; no real API calls.
+   pytest tests/test_transport_security.py
+   make lint
    ```
 
 ## Testing

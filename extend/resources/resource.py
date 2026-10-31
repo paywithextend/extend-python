@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Optional, Any, Dict
+from typing import Any, Dict, Optional
 
 from extend.client import APIClient
 

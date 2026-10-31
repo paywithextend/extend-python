@@ -1,8 +1,9 @@
 from typing import Dict, Optional
 
 from extend.client import APIClient
-from .resource import Resource
+
 from ..models import CreditCardStatus
+from .resource import Resource
 
 
 class CreditCards(Resource):

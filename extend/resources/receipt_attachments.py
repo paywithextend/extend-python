@@ -1,6 +1,7 @@
-from typing import Dict, IO, Optional
+from typing import IO, Dict, Optional
 
 from extend.client import APIClient
+
 from .resource import Resource
 
 

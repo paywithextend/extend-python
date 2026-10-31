@@ -1,8 +1,9 @@
-from typing import Optional, Dict, Sequence, List
+from typing import Dict, List, Optional, Sequence
 
 from extend.client import APIClient
-from .resource import Resource
+
 from ..models import TransactionStatus
+from .resource import Resource
 
 
 class Transactions(Resource):

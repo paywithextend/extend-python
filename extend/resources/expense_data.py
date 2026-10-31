@@ -1,6 +1,7 @@
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 from extend.client import APIClient
+
 from .resource import Resource
 
 
@@ -45,7 +46,7 @@ class ExpenseData(Resource):
             "sortDirection": sort_direction,
         }
 
-        return await self._request(method="get", path=f"/categories", params=params)
+        return await self._request(method="get", path="/categories", params=params)
 
     async def get_expense_category(self, category_id: str) -> Dict:
         """Get detailed information about a specific expense category.

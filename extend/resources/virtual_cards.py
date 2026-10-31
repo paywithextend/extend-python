@@ -1,8 +1,9 @@
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 from extend.client import APIClient
 from extend.models import CardCreationRequest, VirtualCardStatus
 from extend.validations import validate_card_creation_data, validate_card_update_data
+
 from .resource import Resource
 
 
@@ -140,7 +141,6 @@ class VirtualCards(Resource):
         if recurs is not None:
             card_data["recurs"] = recurs
 
-        print(f"Creating virtual card with data: {card_data}")  # Debug log
         return await self._request(method="post", params=card_data)
 
     async def update_virtual_card(

@@ -1,12 +1,7 @@
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
-from .models import (
-    RecurrenceConfig,
-    CardCreationRequest,
-    Period,
-    Terminator
-)
+from .models import CardCreationRequest, Period, RecurrenceConfig, Terminator
 
 
 def validate_card_creation_data(
