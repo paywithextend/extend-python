@@ -64,3 +64,20 @@ async def test_automatch_success():
                                           "transactionId": "txn_test"}]}
     sdk = SimpleNamespace(receipt_capture=SimpleNamespace(get_automatch_status=AsyncMock(return_value=result)))
     assert await wait_for_automatch(sdk, "job_test", "ra_test", "txn_test") == result
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("active", [True, False])
+async def test_deactivation_verifies_server_result(tmp_path, active):
+    sdk = SimpleNamespace(expense_data=SimpleNamespace(
+        update_expense_category=AsyncMock(return_value={"active": active}),
+        update_expense_category_label=AsyncMock(return_value={"active": active}),
+    ))
+    run = LiveRun(sdk, {"environment": "stage"}, tmp_path)
+    for operation, args in [(run.deactivate_category, ("cat_test",)),
+                            (run.deactivate_label, ("cat_test", "label_test"))]:
+        if active:
+            with pytest.raises(AssertionError):
+                await operation(*args)
+        else:
+            await operation(*args)

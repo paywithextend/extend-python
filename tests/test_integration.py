@@ -95,11 +95,11 @@ async def test_expense_category_label_and_transaction(writes):
         name=run.name, code=run.name, required=False, active=True, free_text_allowed=False
     )
     catid = category["id"]
-    run.cleanup("category", catid, sdk.expense_data.update_expense_category, catid, active=False)
+    run.cleanup("category", catid, run.deactivate_category, catid)
     assert (await sdk.expense_data.get_expense_category(catid))["name"] == run.name
     label = await sdk.expense_data.create_expense_category_label(catid, name=run.name, code=run.name, active=True)
     labelid = label["id"]
-    run.cleanup("label", labelid, sdk.expense_data.update_expense_category_label, catid, labelid, active=False)
+    run.cleanup("label", labelid, run.deactivate_label, catid, labelid)
     labels = await sdk.expense_data.get_expense_category_labels(catid)
     assert any(label["id"] == labelid and label["name"] == run.name for label in labels["expenseLabels"])
     # PATCH affects only this newly created category. Clear it before deactivating it;

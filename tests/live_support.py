@@ -52,6 +52,14 @@ class LiveRun:
         response = await self.sdk.virtual_cards.get_virtual_card_detail(card_id)
         assert response["virtualCard"]["status"] == "CLOSED"
 
+    async def deactivate_category(self, category_id):
+        result = await self.sdk.expense_data.update_expense_category(category_id, active=False)
+        assert result["active"] is False
+
+    async def deactivate_label(self, category_id, label_id):
+        result = await self.sdk.expense_data.update_expense_category_label(category_id, label_id, active=False)
+        assert result["active"] is False
+
     async def delete_receipt(self, receipt_id):
         await self.sdk.api_client.delete("/receiptattachments/" + receipt_id)
 
