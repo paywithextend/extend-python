@@ -35,12 +35,9 @@
     "resource": "virtual_cards",
     "response": {
       "virtualCard": {
-        "id": "fixture",
+        "id": "vc_1",
         "currency": "CAD",
-        "parentCreditCard": null,
-        "features": {
-          "direct": false
-        }
+        "recurrence": null
       }
     }
   },
@@ -56,12 +53,9 @@
     "resource": "virtual_cards",
     "response": {
       "virtualCard": {
-        "id": "fixture",
+        "id": "vc_1",
         "currency": "CAD",
-        "parentCreditCard": null,
-        "features": {
-          "direct": false
-        }
+        "recurrence": null
       }
     }
   },
@@ -77,12 +71,9 @@
     "resource": "virtual_cards",
     "response": {
       "virtualCard": {
-        "id": "fixture",
+        "id": "vc_1",
         "currency": "CAD",
-        "parentCreditCard": null,
-        "features": {
-          "direct": false
-        }
+        "recurrence": null
       }
     }
   },
@@ -124,9 +115,10 @@
     "resource": "credit_cards",
     "response": {
       "creditCard": {
-        "id": "fixture",
+        "id": "cc_1",
         "currency": "CAD",
-        "parentCreditCard": null,
+        "parentCreditCardId": null,
+        "parentCreditCardDisplayName": null,
         "features": {
           "direct": false
         }
@@ -182,8 +174,14 @@
     "body": null,
     "resource": "transactions",
     "response": {
-      "id": "fixture",
-      "optional": null
+      "id": "t_1",
+      "virtualCardId": null,
+      "type": "DEBIT",
+      "status": "CLEARED",
+      "authBillingAmountCents": null,
+      "authBillingCurrency": null,
+      "clearingBillingAmountCents": 123,
+      "clearingBillingCurrency": "CAD"
     }
   },
   {
@@ -212,8 +210,14 @@
     },
     "resource": "transactions",
     "response": {
-      "id": "fixture",
-      "optional": null
+      "id": "t_1",
+      "virtualCardId": null,
+      "type": "DEBIT",
+      "status": "CLEARED",
+      "authBillingAmountCents": null,
+      "authBillingCurrency": null,
+      "clearingBillingAmountCents": 123,
+      "clearingBillingCurrency": "CAD"
     }
   },
   {
