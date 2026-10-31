@@ -90,12 +90,10 @@ api_client = APIClient(auth=BasicAuth("your-api-key", "your-api-secret"), enviro
 
 ## Environment Variables
 
-The following environment variables are required for integration tests and examples:
-
-- `EXTEND_API_KEY`: Your Extend API key
-- `EXTEND_API_SECRET`: Your Extend API secret
-- `EXTEND_TEST_RECIPIENT`: Email address for test card recipient
-- `EXTEND_TEST_CARDHOLDER`: Email address for test cardholder
+Examples may read `EXTEND_API_KEY` and `EXTEND_API_SECRET` explicitly in application code.
+The SDK and test suite do not automatically load `.env` files.
+Live tests use separate `EXTEND_TEST_API_KEY` / `EXTEND_TEST_API_SECRET` variables and
+an explicitly supplied private fixture file. See [Testing](CONTRIBUTING.md#testing).
 
 ## Development Setup
 
@@ -118,20 +116,20 @@ The following environment variables are required for integration tests and examp
 
 4. Run tests:
    ```bash
-   # Focused security and transport tests; no real API calls.
-   pytest tests/test_transport_security.py
+   # Complete offline suite; no account or credentials required.
+   python -m pytest -q
    make lint
    ```
 
 ## Testing
 
-The project includes both unit tests and integration tests:
+The default suite verifies every resource's HTTP contract, authentication, errors,
+transport security, retries, and cleanup without contacting Extend. CI runs it from
+source and against an installed wheel on Python 3.11–3.14.
 
-- Unit tests (`tests/test_client.py`): Test the client's internal logic and validation
-- Integration tests (`tests/test_integration.py`): Test actual API interactions
-- Example notebook (`notebooks/api_testing.ipynb`): Interactive examples
-
-To run integration tests, make sure you have set up the required environment variables.
+Live tests are opt-in and use explicitly provisioned resources. Writes, receipt
+matching, and reminders each require explicit flags. See the
+[contributor testing guide](CONTRIBUTING.md#testing) for fixture setup and cleanup.
 
 ## Contributing
 
@@ -152,3 +150,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [Extend API Documentation](https://paywithextend.stoplight.io/)
 - [httpx](https://www.python-httpx.org/) for async HTTP requests
+
+### Endpoint availability
+
+Server implementation, public gateway exposure, and account permissions are separate
+requirements. Organization, member, policy, user, and individual-label helpers may
+return 403 where the public gateway does not expose those routes. Receipt deletion
+is also unavailable on some gateways even when upload is enabled. Offline contract
+tests verify serialization; they do not establish deployed route availability.

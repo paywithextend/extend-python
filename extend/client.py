@@ -109,6 +109,10 @@ class APIClient:
     async def get(self, url: str, params: dict | None = None) -> Any:
         return await self._send_request("GET", url, params=params)
 
+    async def delete(self, url: str) -> Any:
+        """Delete a resource without retrying an ambiguous mutation."""
+        return await self._send_request("DELETE", url)
+
     async def post(self, url: str, data: dict) -> Any:
         return await self._send_request("POST", url, json=data)
 

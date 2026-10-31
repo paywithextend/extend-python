@@ -70,3 +70,6 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Private live test configuration and reconciliation journals
+.live-tests/

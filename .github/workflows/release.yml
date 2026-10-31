@@ -32,17 +32,20 @@ jobs:
           git checkout --detach "$RELEASE_TAG"
           python -c "import ast,os,pathlib; version=ast.literal_eval(ast.parse(pathlib.Path('extend/__version__.py').read_text()).body[0].value); assert 'v'+version == os.environ['RELEASE_TAG']"
       - run: python -m pip install . pytest==9.2.0 pytest-asyncio==1.4.1 ruff==0.17.3 build==1.6.1
-      - run: python -m ruff check extend tests/test_transport_security.py tests/test_endpoint_contracts.py tools
-      - run: python -m pytest -q tests/test_transport_security.py tests/test_endpoint_contracts.py
+      - run: python -m ruff check extend tests tools
+      - run: python -m pytest -q
       - run: python -m build
       - name: Validate the built wheel and its runtime graph
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           python -m venv /tmp/release-wheel
-          /tmp/release-wheel/bin/python -m pip install dist/*.whl
+          /tmp/release-wheel/bin/python -m pip install -c requirements.lock dist/*.whl pytest==9.2.0 pytest-asyncio==1.4.1
           /tmp/release-wheel/bin/python -I -c "import extend,os; assert 'v'+extend.__version__ == os.environ['RELEASE_TAG']"
-          /tmp/release-wheel/bin/python tools/check_advisories.py
+          /tmp/release-wheel/bin/python tools/test_installed_wheel.py
+          python -m venv /tmp/release-runtime
+          /tmp/release-runtime/bin/python -m pip install -c requirements.lock dist/*.whl
+          /tmp/release-runtime/bin/python tools/check_advisories.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sdk-distributions
