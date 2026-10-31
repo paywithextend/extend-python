@@ -4,9 +4,11 @@ from .auth import Authorization
 from .client import APIClient
 from .resources.credit_cards import CreditCards
 from .resources.expense_data import ExpenseData
+from .resources.organizations import Organizations
 from .resources.receipt_attachments import ReceiptAttachments
 from .resources.receipt_capture import ReceiptCapture
 from .resources.transactions import Transactions
+from .resources.users import Users
 
 
 class ExtendClient:
@@ -20,7 +22,7 @@ class ExtendClient:
         from extend.auth import BasicAuth
 
         extend = ExtendClient(auth=BasicAuth("your_key", "your_secret"))
-        cards = await extend.get_virtual_cards()
+        cards = await extend.virtual_cards.get_virtual_cards()
         ```
     """
 
@@ -37,6 +39,8 @@ class ExtendClient:
         self.expense_data = ExpenseData(self._api_client)
         self.receipt_attachments = ReceiptAttachments(self._api_client)
         self.receipt_capture = ReceiptCapture(self._api_client)
+        self.organizations = Organizations(self._api_client)
+        self.users = Users(self._api_client)
 
     @property
     def api_client(self) -> APIClient:

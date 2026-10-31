@@ -3,6 +3,7 @@ from typing import Dict, Optional
 from extend.client import APIClient
 
 from ..models import CreditCardStatus
+from ..validations import pagination, resource_id
 from .resource import Resource
 
 
@@ -21,13 +22,16 @@ class CreditCards(Resource):
             status: Optional[str] = None,
             search_term: Optional[str] = None,
             sort_direction: Optional[str] = None,
+            *,
+            type: Optional[str] = None,
+            sort_field: Optional[str] = None,
     ) -> Dict:
         """Get a list of all credit cards associated with your account.
 
         Args:
-            page (Optional[int]): The page number for pagination (1-based)
+            page (Optional[int]): The page number for pagination (0-based)
             per_page (Optional[int]): Number of items per page
-            status (Optional[str]): Filter cards by status (e.g., "ACTIVE", "CANCELLED")
+            status (Optional[str]): Filter cards by status (e.g., "ACTIVE", "CLOSED")
             search_term (Optional[str]): Filter cards by search term (e.g., "Marketing")
             sort_direction (Optional[str]): Direction to sort (ASC or DESC)
 
@@ -47,12 +51,17 @@ class CreditCards(Resource):
         if status and not CreditCardStatus.is_valid(status.upper()):
             raise ValueError(f"{status} is not a valid status")
 
+        pagination(page, per_page)
+        if type is not None and type.upper() not in {"SOURCE", "DELEGATE"}:
+            raise ValueError("Credit-card type must be SOURCE or DELEGATE")
         params = {
             "page": page,
             "count": per_page,
-            "statuses": status.upper() if status else None,
+            "status": status.upper() if status else None,
             "search": search_term,
             "sortDirection": sort_direction,
+            "sortField": sort_field,
+            "type": type.upper() if type else None,
         }
 
         return await self._request(method="get", params=params)
@@ -73,4 +82,4 @@ class CreditCards(Resource):
             httpx.HTTPError: If the request fails
         """
 
-        return await self._request(method="get", path=f"/{card_id}")
+        return await self._request(method="get", path=f"/{resource_id(card_id)}")

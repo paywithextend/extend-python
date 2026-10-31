@@ -17,8 +17,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install -c requirements.lock . pytest==9.2.0 pytest-asyncio==1.4.1 ruff==0.17.3 build==1.6.1
-      - run: python -m ruff check extend tests/test_transport_security.py tools
-      - run: python -m pytest -q tests/test_transport_security.py
+      - run: python -m ruff check extend tests/test_transport_security.py tests/test_endpoint_contracts.py tools
+      - run: python -m pytest -q tests/test_transport_security.py tests/test_endpoint_contracts.py
       - run: python -m build
       - name: Verify installed wheel without source imports
         run: |
