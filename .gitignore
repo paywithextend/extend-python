@@ -22,6 +22,7 @@ wheels/
 
 # Virtual environments
 venv/
+.venv/
 env/
 ENV/
 test_env/
@@ -70,3 +71,6 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Private live test configuration and reconciliation journals
+.live-tests/

@@ -1,167 +1,188 @@
-from typing import Optional, Dict, Any
+"""Origin-constrained asynchronous transport for Extend resources."""
+from __future__ import annotations
+
+import asyncio
+import math
+import re
+import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from typing import Any
 
 import httpx
 
 from .auth import Authorization
-from .config import API_HOST
+from .config import API_HOSTS, resolve_environment
+
+_PATH = re.compile(r"/[A-Za-z0-9_./~-]*\Z")
+_RETRYABLE = {429, 502, 503, 504}
+
+
+class ExtendAPIError(httpx.HTTPStatusError):
+    """An HTTP failure with safe display text and inspectable response metadata."""
+
+    def __init__(self, response: httpx.Response):
+        self.status_code = response.status_code
+        self.retry_after = response.headers.get("retry-after")
+        candidate = response.headers.get("x-request-id", "")
+        self.request_id = candidate if re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", candidate) else None
+        super().__init__(
+            f"Extend API returned HTTP {self.status_code}",
+            request=response.request,
+            response=response,
+        )
+
+
+class ExtendTransportError(httpx.TransportError):
+    """An ambiguous transport failure; mutation callers must reconcile before retrying."""
 
 
 class APIClient:
-    """Client for interacting with the Extend API.
+    """An explicit environment and a reusable transport bound to one auth provider.
 
-    Args:
-        auth (Authorization): Authorization strategy that yields request headers.
-        
-    Example:
-        ```python
-        from extend.auth import BasicAuth
-
-        client = APIClient(auth=BasicAuth("your_key", "your_secret"))
-        cards = await client.get_virtual_cards()
-        ```
+    Injected HTTPX clients remain caller-owned. All requests disable HTTPX auth
+    overrides, redirects and environment-proxy discovery for owned clients.
     """
 
-    _shared_instance: Optional["APIClient"] = None
-
-    def __init__(self, auth: Authorization):
-        """Initialize the Extend API client.
-
-        Args:
-            auth (Authorization): Authorization strategy to use for requests.
-        """
-        headers = dict(auth.get_auth_headers())
-
+    def __init__(
+        self,
+        auth: Authorization,
+        *,
+        environment: str | None = None,
+        http_client: httpx.AsyncClient | None = None,
+        timeout: float = 30,
+        read_retries: int = 2,
+        read_budget: float = 60,
+    ):
+        self.environment = resolve_environment(environment)
+        self._host = API_HOSTS[self.environment]
         self._auth = auth
-        self.headers = headers
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be positive and finite")
+        if not math.isfinite(read_budget) or read_budget <= 0:
+            raise ValueError("read_budget must be positive and finite")
+        if isinstance(read_retries, bool) or not isinstance(read_retries, int) or not 0 <= read_retries <= 5:
+            raise ValueError("read_retries must be an integer between 0 and 5")
+        self._timeout = timeout
+        self._read_retries = read_retries
+        self._read_budget = read_budget
+        self._owned = http_client is None
+        self._client = http_client or httpx.AsyncClient(trust_env=False, follow_redirects=False)
+        self._closed = False
+
+    @property
+    def headers(self) -> dict[str, str]:
+        """Return a fresh snapshot; token changes apply to the next request."""
+        return dict(self._auth.get_auth_headers())
 
     @classmethod
-    def shared_instance(cls, auth: Authorization) -> "APIClient":
-        """Returns a singleton instance of APIClient using the provided authorization."""
-        if cls._shared_instance is None:
-            cls._shared_instance = cls(auth=auth)
-        return cls._shared_instance
+    def shared_instance(cls, auth: Authorization, **kwargs) -> APIClient:
+        """Compatibility factory; never share credentials between callers."""
+        return cls(auth, **kwargs)
 
-    # ----------------------------------------
-    # HTTP Methods
-    # ----------------------------------------
+    async def __aenter__(self) -> APIClient:
+        if self._closed:
+            raise RuntimeError("Extend client is closed")
+        return self
 
-    async def get(self, url: str, params: Optional[Dict] = None) -> Any:
-        """Make a GET request to the Extend API.
-        
-        Args:
-            url (str): The API endpoint path (e.g., "/virtualcards")
-            params (Optional[Dict]): Query parameters to include in the request
-            
-        Returns:
-            The JSON response from the API
-            
-        Raises:
-            httpx.HTTPError: If the request fails
-            ValueError: If the response is not valid JSON
-        """
+    async def __aexit__(self, *exc_info) -> None:
+        await self.aclose()
+
+    async def aclose(self) -> None:
+        if not self._closed:
+            self._closed = True
+            if self._owned:
+                await self._client.aclose()
+
+    def build_full_url(self, url: str | None) -> str:
+        """Accept only unambiguous relative endpoint paths, with separate query params."""
+        path = "/" if url is None else url
+        if not isinstance(path, str) or not _PATH.fullmatch(path):
+            raise ValueError("Endpoint must be an unencoded, slash-prefixed relative path")
+        if "//" in path or any(segment in {".", ".."} for segment in path.split("/")):
+            raise ValueError("Endpoint contains an ambiguous path segment")
+        parsed = httpx.URL(f"https://{self._host}{path}")
+        if (parsed.scheme, parsed.host, parsed.port) != ("https", self._host, None):
+            raise ValueError("Endpoint origin does not match the configured Extend origin")
+        return str(parsed)
+
+    async def get(self, url: str, params: dict | None = None) -> Any:
         return await self._send_request("GET", url, params=params)
 
-    async def post(self, url: str, data: Dict) -> Any:
-        """Make a POST request to the Extend API.
-        
-        Args:
-            url (str): The API endpoint path (e.g., "/virtualcards")
-            data (Dict): The JSON payload to send in the request body
-            
-        Returns:
-            The JSON response from the API
-            
-        Raises:
-            httpx.HTTPError: If the request fails
-            ValueError: If the response is not valid JSON
-        """
+    async def delete(self, url: str) -> Any:
+        """Delete a resource without retrying an ambiguous mutation."""
+        return await self._send_request("DELETE", url)
+
+    async def post(self, url: str, data: dict) -> Any:
         return await self._send_request("POST", url, json=data)
 
-    async def put(self, url: str, data: Dict) -> Any:
-        """Make a PUT request to the Extend API.
-        
-        Args:
-            url (str): The API endpoint path (e.g., "/virtualcards/{card_id}")
-            data (Dict): The JSON payload to send in the request body
-            
-        Returns:
-            The JSON response from the API
-            
-        Raises:
-            httpx.HTTPError: If the request fails
-            ValueError: If the response is not valid JSON
-        """
+    async def put(self, url: str, data: dict) -> Any:
         return await self._send_request("PUT", url, json=data)
 
-    async def patch(self, url: str, data: Dict) -> Any:
-        """Make a PATCH request to the Extend API.
-
-        Args:
-            url (str): The API endpoint path (e.g., "/virtualcards/{card_id}")
-            data (Dict): The JSON payload to send in the request body
-
-        Returns:
-            The JSON response from the API
-
-        Raises:
-            httpx.HTTPError: If the request fails
-            ValueError: If the response is not valid JSON
-        """
+    async def patch(self, url: str, data: dict) -> Any:
         return await self._send_request("PATCH", url, json=data)
 
     async def post_multipart(
-            self,
-            url: str,
-            data: Optional[Dict[str, Any]] = None,
-            files: Optional[Dict[str, Any]] = None,
+        self, url: str, data: dict | None = None, files: dict | None = None
     ) -> Any:
-        """Make a POST request with multipart/form-data payload.
-
-        This method is designed to support file uploads along with optional form data.
-
-        Args:
-            url (str): The API endpoint path (e.g., "/receiptattachments")
-            data (Optional[Dict[str, Any]]): Optional form fields to include in the request.
-            files (Optional[Dict[str, Any]]): Files to be uploaded. For example,
-                {"file": file_obj} where file_obj is an open file in binary mode.
-
-        Returns:
-            The JSON response from the API.
-
-        Raises:
-            httpx.HTTPError: If the request fails.
-            ValueError: If the response is not valid JSON.
-        """
-        # When sending multipart data, we pass `data` (for non-file fields)
-        # and `files` (for file uploads) separately.
         return await self._send_request("POST", url, data=data, files=files)
 
-    def build_full_url(self, url: Optional[str]):
-        return f"https://{API_HOST}{url or ''}"
+    @staticmethod
+    def _retry_delay(value: str | None, attempt: int) -> float:
+        if value is not None:
+            try:
+                delay = float(value)
+            except ValueError:
+                try:
+                    dt = parsedate_to_datetime(value)
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    delay = (dt - datetime.now(timezone.utc)).total_seconds()
+                except (ValueError, TypeError, OverflowError):
+                    delay = 0.25 * 2**attempt
+            if math.isfinite(delay):
+                return max(0, delay)
+        return 0.25 * 2**attempt
 
-    async def _send_request(
-            self,
-            method: str,
-            url: str,
-            *,
-            params: Optional[Dict] = None,
-            json: Optional[Dict] = None,
-            data: Optional[Dict] = None,
-            files: Optional[Dict] = None
-    ) -> Any:
-        async with httpx.AsyncClient() as client:
-            response = await client.request(
-                method=method.upper(),
-                url=self.build_full_url(url),
-                headers=self.headers,
-                params=params,
-                json=json,
-                data=data,
-                files=files,
-                timeout=httpx.Timeout(30)
-            )
-            response.raise_for_status()
-
-            if response.content:
-                return response.json()
-            return None
+    async def _send_request(self, method: str, url: str, **kwargs) -> Any:
+        if self._closed:
+            raise RuntimeError("Extend client is closed")
+        full_url = self.build_full_url(url)  # Before reading any credentials.
+        safe_read = method == "GET"
+        attempts = self._read_retries + 1 if safe_read else 1
+        budget = self._read_budget if safe_read else self._timeout
+        deadline = time.monotonic() + budget
+        try:
+            async with asyncio.timeout(budget):
+                for attempt in range(attempts):
+                    request = httpx.Request(
+                        method, full_url, headers=self.headers, **kwargs,
+                        extensions={"timeout": httpx.Timeout(self._timeout).as_dict()},
+                    )
+                    try:
+                        response = await self._client.send(
+                            request, auth=None, follow_redirects=False
+                        )
+                    except httpx.TransportError as exc:
+                        if attempt + 1 == attempts:
+                            raise ExtendTransportError("Extend request failed; reconcile any write before retrying") from exc
+                        delay = self._retry_delay(None, attempt)
+                    else:
+                        if response.is_success:
+                            if not response.content:
+                                return None
+                            try:
+                                return response.json()
+                            except ValueError as exc:
+                                raise ExtendTransportError("Extend returned an invalid JSON response") from exc
+                        error = ExtendAPIError(response)
+                        if response.status_code not in _RETRYABLE or attempt + 1 == attempts:
+                            raise error
+                        delay = self._retry_delay(error.retry_after, attempt)
+                        if delay >= deadline - time.monotonic():
+                            raise error
+                    if delay >= deadline - time.monotonic():
+                        raise ExtendTransportError("Extend read retry budget exhausted")
+                    await asyncio.sleep(delay)
+        except TimeoutError as exc:
+            raise ExtendTransportError("Extend request time budget exceeded; reconcile any write before retrying") from exc

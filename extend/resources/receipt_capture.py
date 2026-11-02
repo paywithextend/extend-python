@@ -1,6 +1,8 @@
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 from extend.client import APIClient
+
+from ..validations import resource_id
 from .resource import Resource
 
 
@@ -41,7 +43,9 @@ class ReceiptCapture(Resource):
         Raises:
             httpx.HTTPError: If the request fails.
         """
-        payload = {"receiptAttachmentIds": receipt_attachment_ids}
+        if not isinstance(receipt_attachment_ids, list) or not receipt_attachment_ids:
+            raise ValueError("receipt_attachment_ids must be a nonempty list")
+        payload = {"receiptAttachmentIds": [resource_id(value) for value in receipt_attachment_ids]}
 
         return await self._request(
             method="post",
@@ -74,5 +78,5 @@ class ReceiptCapture(Resource):
         """
         return await self._request(
             method="get",
-            path=f"/{job_id}/status",
+            path=f"/{resource_id(job_id)}/status",
         )

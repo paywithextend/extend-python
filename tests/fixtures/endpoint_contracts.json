@@ -1,0 +1,565 @@
+[
+  {
+    "name": "get_virtual_cards",
+    "arguments": {
+      "page": 0,
+      "per_page": 10
+    },
+    "method": "GET",
+    "path": "/virtualcards",
+    "query": {
+      "page": "0",
+      "count": "10"
+    },
+    "body": null,
+    "resource": "virtual_cards",
+    "response": {
+      "virtualCards": [],
+      "pagination": {
+        "page": 0,
+        "pageItemCount": 0,
+        "totalItems": 0,
+        "numberOfPages": 0
+      }
+    }
+  },
+  {
+    "name": "get_virtual_card_detail",
+    "arguments": {
+      "card_id": "vc_1"
+    },
+    "method": "GET",
+    "path": "/virtualcards/vc_1",
+    "query": {},
+    "body": null,
+    "resource": "virtual_cards",
+    "response": {
+      "virtualCard": {
+        "id": "vc_1",
+        "currency": "CAD",
+        "recurrence": null
+      }
+    }
+  },
+  {
+    "name": "cancel_virtual_card",
+    "arguments": {
+      "card_id": "vc_1"
+    },
+    "method": "PUT",
+    "path": "/virtualcards/vc_1/cancel",
+    "query": {},
+    "body": null,
+    "resource": "virtual_cards",
+    "response": {
+      "virtualCard": {
+        "id": "vc_1",
+        "currency": "CAD",
+        "recurrence": null
+      }
+    }
+  },
+  {
+    "name": "close_virtual_card",
+    "arguments": {
+      "card_id": "vc_1"
+    },
+    "method": "PUT",
+    "path": "/virtualcards/vc_1/close",
+    "query": {},
+    "body": null,
+    "resource": "virtual_cards",
+    "response": {
+      "virtualCard": {
+        "id": "vc_1",
+        "currency": "CAD",
+        "recurrence": null
+      }
+    }
+  },
+  {
+    "name": "get_credit_cards",
+    "arguments": {
+      "type": "SOURCE",
+      "page": 0,
+      "per_page": 10
+    },
+    "method": "GET",
+    "path": "/creditcards",
+    "query": {
+      "page": "0",
+      "count": "10",
+      "type": "SOURCE"
+    },
+    "body": null,
+    "resource": "credit_cards",
+    "response": {
+      "creditCards": [],
+      "pagination": {
+        "page": 0,
+        "pageItemCount": 0,
+        "totalItems": 0,
+        "numberOfPages": 0
+      }
+    }
+  },
+  {
+    "name": "get_credit_card_detail",
+    "arguments": {
+      "card_id": "cc_1"
+    },
+    "method": "GET",
+    "path": "/creditcards/cc_1",
+    "query": {},
+    "body": null,
+    "resource": "credit_cards",
+    "response": {
+      "creditCard": {
+        "id": "cc_1",
+        "currency": "CAD",
+        "parentCreditCardId": null,
+        "parentCreditCardDisplayName": null,
+        "features": {
+          "direct": false
+        }
+      }
+    }
+  },
+  {
+    "name": "get_transactions",
+    "arguments": {
+      "page": 1,
+      "per_page": 50
+    },
+    "method": "GET",
+    "path": "/reports/transactions/v2",
+    "query": {
+      "page": "1",
+      "perPage": "50",
+      "dateType": "Transaction"
+    },
+    "body": null,
+    "resource": "transactions",
+    "response": {
+      "report": {
+        "page": 1,
+        "perPage": 50,
+        "count": 0,
+        "transactions": []
+      }
+    }
+  },
+  {
+    "name": "count_transactions",
+    "arguments": {},
+    "method": "GET",
+    "path": "/reports/transactions/count",
+    "query": {
+      "dateType": "Transaction"
+    },
+    "body": null,
+    "resource": "transactions",
+    "response": {
+      "count": 12
+    }
+  },
+  {
+    "name": "get_transaction",
+    "arguments": {
+      "transaction_id": "t_1"
+    },
+    "method": "GET",
+    "path": "/transactions/t_1",
+    "query": {},
+    "body": null,
+    "resource": "transactions",
+    "response": {
+      "id": "t_1",
+      "virtualCardId": null,
+      "type": "DEBIT",
+      "status": "CLEARED",
+      "authBillingAmountCents": null,
+      "authBillingCurrency": null,
+      "clearingBillingAmountCents": 123,
+      "clearingBillingCurrency": "CAD"
+    }
+  },
+  {
+    "name": "update_transaction_expense_data",
+    "arguments": {
+      "transaction_id": "t_1",
+      "data": {
+        "expenseDetails": [
+          {
+            "categoryId": "ec_1",
+            "labelId": "ecl_1"
+          }
+        ]
+      }
+    },
+    "method": "PATCH",
+    "path": "/transactions/t_1/expensedata",
+    "query": {},
+    "body": {
+      "expenseDetails": [
+        {
+          "categoryId": "ec_1",
+          "labelId": "ecl_1"
+        }
+      ]
+    },
+    "resource": "transactions",
+    "response": {
+      "id": "t_1",
+      "virtualCardId": null,
+      "type": "DEBIT",
+      "status": "CLEARED",
+      "authBillingAmountCents": null,
+      "authBillingCurrency": null,
+      "clearingBillingAmountCents": 123,
+      "clearingBillingCurrency": "CAD"
+    }
+  },
+  {
+    "name": "get_expense_categories",
+    "arguments": {
+      "active": false
+    },
+    "method": "GET",
+    "path": "/expensedata/categories",
+    "query": {
+      "active": "false"
+    },
+    "body": null,
+    "resource": "expense_data",
+    "response": {
+      "expenseCategories": []
+    }
+  },
+  {
+    "name": "get_expense_category",
+    "arguments": {
+      "category_id": "ec_1"
+    },
+    "method": "GET",
+    "path": "/expensedata/categories/ec_1",
+    "query": {},
+    "body": null,
+    "resource": "expense_data",
+    "response": {
+      "id": "fixture",
+      "optional": null
+    }
+  },
+  {
+    "name": "get_expense_category_labels",
+    "arguments": {
+      "category_id": "ec_1",
+      "page": 0,
+      "per_page": 10
+    },
+    "method": "GET",
+    "path": "/expensedata/categories/ec_1/labels",
+    "query": {
+      "page": "0",
+      "count": "10"
+    },
+    "body": null,
+    "resource": "expense_data",
+    "response": {
+      "expenseLabels": [],
+      "pagination": {
+        "page": 0,
+        "totalItems": 0
+      }
+    }
+  },
+  {
+    "name": "get_expense_category_label",
+    "arguments": {
+      "category_id": "ec_1",
+      "label_id": "ecl_1"
+    },
+    "method": "GET",
+    "path": "/expensedata/categories/ec_1/labels/ecl_1",
+    "query": {},
+    "body": null,
+    "resource": "expense_data",
+    "response": {
+      "id": "fixture",
+      "optional": null
+    }
+  },
+  {
+    "name": "create_expense_category",
+    "arguments": {
+      "name": "Synthetic category",
+      "code": "TEST",
+      "required": false
+    },
+    "method": "POST",
+    "path": "/expensedata/categories",
+    "query": {},
+    "body": {
+      "name": "Synthetic category",
+      "code": "TEST",
+      "required": false
+    },
+    "resource": "expense_data",
+    "response": {
+      "id": "fixture",
+      "optional": null
+    }
+  },
+  {
+    "name": "create_expense_category_label",
+    "arguments": {
+      "category_id": "ec_1",
+      "name": "Synthetic label",
+      "code": "TEST"
+    },
+    "method": "POST",
+    "path": "/expensedata/categories/ec_1/labels",
+    "query": {},
+    "body": {
+      "name": "Synthetic label",
+      "code": "TEST",
+      "active": true
+    },
+    "resource": "expense_data",
+    "response": {
+      "id": "fixture",
+      "optional": null
+    }
+  },
+  {
+    "name": "update_expense_category",
+    "arguments": {
+      "category_id": "ec_1",
+      "active": false
+    },
+    "method": "PATCH",
+    "path": "/expensedata/categories/ec_1",
+    "query": {},
+    "body": {
+      "active": false
+    },
+    "resource": "expense_data",
+    "response": {
+      "id": "fixture",
+      "optional": null
+    }
+  },
+  {
+    "name": "update_expense_category_label",
+    "arguments": {
+      "category_id": "ec_1",
+      "label_id": "ecl_1",
+      "active": false
+    },
+    "method": "PATCH",
+    "path": "/expensedata/categories/ec_1/labels/ecl_1",
+    "query": {},
+    "body": {
+      "active": false
+    },
+    "resource": "expense_data",
+    "response": {
+      "id": "fixture",
+      "optional": null
+    }
+  },
+  {
+    "name": "get_organizations",
+    "arguments": {},
+    "method": "GET",
+    "path": "/organizations",
+    "query": {},
+    "body": null,
+    "resource": "organizations",
+    "response": {
+      "organizations": []
+    }
+  },
+  {
+    "name": "get_organization_members",
+    "arguments": {
+      "organization_id": "org_1"
+    },
+    "method": "GET",
+    "path": "/organizations/org_1/members",
+    "query": {
+      "page": "0",
+      "count": "50",
+      "showDeactivatedUsers": "true",
+      "renderMetrics": "false"
+    },
+    "body": null,
+    "resource": "organizations",
+    "response": {
+      "users": [],
+      "pagination": {
+        "page": 0,
+        "totalItems": 0
+      }
+    }
+  },
+  {
+    "name": "get_user_details",
+    "arguments": {
+      "user_id": "u_1"
+    },
+    "method": "GET",
+    "path": "/users/u_1",
+    "query": {},
+    "body": null,
+    "resource": "users",
+    "response": {
+      "id": "fixture",
+      "optional": null
+    }
+  },
+  {
+    "name": "get_expense_policy",
+    "arguments": {
+      "organization_id": "org_1"
+    },
+    "method": "GET",
+    "path": "/organizations/org_1/expensepolicy",
+    "query": {},
+    "body": null,
+    "resource": "organizations",
+    "response": {
+      "id": "policy_1",
+      "fileName": "policy.pdf",
+      "urls": {
+        "original": "https://example.invalid/policy"
+      },
+      "compiledAt": null
+    }
+  },
+  {
+    "name": "create_receipt_attachment",
+    "arguments": {},
+    "method": "POST",
+    "path": "/receiptattachments",
+    "query": {},
+    "body": "multipart",
+    "resource": "receipt_attachments",
+    "response": {
+      "id": "fixture",
+      "optional": null
+    }
+  },
+  {
+    "name": "automatch_receipts",
+    "arguments": {
+      "receipt_attachment_ids": [
+        "ra_1"
+      ]
+    },
+    "method": "POST",
+    "path": "/receiptcapture/automatch",
+    "query": {},
+    "body": {
+      "receiptAttachmentIds": [
+        "ra_1"
+      ]
+    },
+    "resource": "receipt_capture",
+    "response": {
+      "id": "job_1",
+      "tasks": [
+        {
+          "id": "task_1",
+          "status": "SKIPPED",
+          "transactionId": null,
+          "receiptAttachmentId": "ra_1"
+        }
+      ]
+    }
+  },
+  {
+    "name": "get_automatch_status",
+    "arguments": {
+      "job_id": "job_1"
+    },
+    "method": "GET",
+    "path": "/receiptcapture/job_1/status",
+    "query": {},
+    "body": null,
+    "resource": "receipt_capture",
+    "response": {
+      "id": "job_1",
+      "tasks": [
+        {
+          "id": "task_1",
+          "status": "SKIPPED",
+          "transactionId": null,
+          "receiptAttachmentId": "ra_1"
+        }
+      ]
+    }
+  },
+  {
+    "name": "send_receipt_reminder",
+    "arguments": {
+      "transaction_id": "t_1"
+    },
+    "method": "POST",
+    "path": "/transactions/t_1/receiptreminder",
+    "query": {},
+    "body": null,
+    "resource": "transactions",
+    "response": null
+  },
+  {
+    "resource": "virtual_cards",
+    "name": "create_virtual_card",
+    "method": "POST",
+    "path": "/virtualcards",
+    "arguments": {
+      "credit_card_id": "cc_1",
+      "display_name": "Synthetic",
+      "balance_cents": 100,
+      "valid_from": "2027-01-01"
+    },
+    "query": {},
+    "body": {
+      "creditCardId": "cc_1",
+      "displayName": "Synthetic",
+      "balanceCents": 100,
+      "validFrom": "2027-01-01"
+    },
+    "response": {
+      "virtualCard": {
+        "id": "vc_1",
+        "currency": "EUR"
+      }
+    }
+  },
+  {
+    "resource": "virtual_cards",
+    "name": "update_virtual_card",
+    "method": "PUT",
+    "path": "/virtualcards/vc_1",
+    "arguments": {
+      "card_id": "vc_1",
+      "display_name": "Synthetic",
+      "balance_cents": 100,
+      "notes": ""
+    },
+    "query": {},
+    "body": {
+      "displayName": "Synthetic",
+      "balanceCents": 100,
+      "notes": ""
+    },
+    "response": {
+      "virtualCard": {
+        "id": "vc_1",
+        "currency": "EUR"
+      }
+    }
+  }
+]

@@ -1,6 +1,8 @@
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 from extend.client import APIClient
+
+from ..validations import pagination, resource_id
 from .resource import Resource
 
 
@@ -19,6 +21,10 @@ class ExpenseData(Resource):
             search: Optional[str] = None,
             sort_field: Optional[str] = None,
             sort_direction: Optional[str] = None,
+            *,
+            transaction_id: Optional[str] = None,
+            required_for_transactions: Optional[bool] = None,
+            required_for_virtual_cards: Optional[bool] = None,
     ) -> Dict:
         """Get a list of expense categories.
 
@@ -40,12 +46,15 @@ class ExpenseData(Resource):
         params = {
             "active": active,
             "required": required,
+            "transactionId": resource_id(transaction_id) if transaction_id is not None else None,
+            "requiredForTransactions": required_for_transactions,
+            "requiredForVirtualCards": required_for_virtual_cards,
             "search": search,
             "sortField": sort_field,
             "sortDirection": sort_direction,
         }
 
-        return await self._request(method="get", path=f"/categories", params=params)
+        return await self._request(method="get", path="/categories", params=params)
 
     async def get_expense_category(self, category_id: str) -> Dict:
         """Get detailed information about a specific expense category.
@@ -59,7 +68,7 @@ class ExpenseData(Resource):
         Raises:
             httpx.HTTPError: If the request fails or transaction not found
         """
-        return await self._request(method="get", path=f"/categories/{category_id}")
+        return await self._request(method="get", path=f"/categories/{resource_id(category_id)}")
 
     async def get_expense_category_labels(
             self,
@@ -75,7 +84,7 @@ class ExpenseData(Resource):
 
         Args:
             category_id (str): The unique identifier of the expense category
-            page (Optional[int]): The page number for pagination (1-based)
+            page (Optional[int]): The page number for pagination (0-based)
             per_page (Optional[int]): Number of items per page
             active (Optional[bool]): Show only active labels
             search (Optional[str]): Full-text search query
@@ -95,6 +104,7 @@ class ExpenseData(Resource):
             httpx.HTTPError: If the request fails
         """
 
+        pagination(page, per_page)
         params = {
             "page": page,
             "count": per_page,
@@ -104,15 +114,18 @@ class ExpenseData(Resource):
             "sortDirection": sort_direction,
         }
 
-        return await self._request(method="get", path=f"/categories/{category_id}/labels", params=params)
+        return await self._request(method="get", path=f"/categories/{resource_id(category_id)}/labels", params=params)
 
     async def create_expense_category(
             self,
             name: str,
             code: str,
-            required: bool,
+            required: bool = False,
             active: Optional[bool] = None,
             free_text_allowed: Optional[bool] = None,
+            *,
+            required_for_transactions: Optional[bool] = None,
+            required_for_virtual_cards: Optional[bool] = None,
     ) -> Dict:
         """Create an expense category.
 
@@ -136,6 +149,8 @@ class ExpenseData(Resource):
             "required": required,
             "active": active,
             "freeTextAllowed": free_text_allowed,
+            "requiredForTransactions": required_for_transactions,
+            "requiredForVirtualCards": required_for_virtual_cards,
         }
 
         return await self._request(
@@ -173,7 +188,7 @@ class ExpenseData(Resource):
 
         return await self._request(
             method="post",
-            path=f"/categories/{category_id}/labels",
+            path=f"/categories/{resource_id(category_id)}/labels",
             params=payload
         )
 
@@ -184,6 +199,9 @@ class ExpenseData(Resource):
             active: Optional[bool] = None,
             required: Optional[bool] = None,
             free_text_allowed: Optional[bool] = None,
+            *,
+            required_for_transactions: Optional[bool] = None,
+            required_for_virtual_cards: Optional[bool] = None,
     ) -> Dict:
         """Update the an expense category.
 
@@ -206,11 +224,13 @@ class ExpenseData(Resource):
             "active": active,
             "required": required,
             "freeTextAllowed": free_text_allowed,
+            "requiredForTransactions": required_for_transactions,
+            "requiredForVirtualCards": required_for_virtual_cards,
         }
 
         return await self._request(
             method="patch",
-            path=f"/categories/{category_id}",
+            path=f"/categories/{resource_id(category_id)}",
             params=payload
         )
 
@@ -243,6 +263,12 @@ class ExpenseData(Resource):
 
         return await self._request(
             method="patch",
-            path=f"/categories/{category_id}/labels/{label_id}",
+            path=f"/categories/{resource_id(category_id)}/labels/{resource_id(label_id)}",
             params=payload
+        )
+
+    async def get_expense_category_label(self, category_id: str, label_id: str) -> Dict:
+        """Return the flat expense-label object, scoped to its category."""
+        return await self._request(
+            "get", path=f"/categories/{resource_id(category_id)}/labels/{resource_id(label_id)}"
         )

@@ -1,0 +1,11 @@
+{
+  "environment": "stage",
+  "dedicated_test_account": true,
+  "credit_card_id": "cc_replace_with_test_card",
+  "transaction_id": "txn_replace_with_dedicated_transaction",
+  "recipient": "sdk-test@example.invalid",
+  "cardholder": "sdk-test@example.invalid",
+  "reminder_recipient": "sdk-test@example.invalid",
+  "reminder_transaction_id": "txn_replace_with_dedicated_reminder_transaction",
+  "matching_receipt_file": "synthetic-matching-receipt.png"
+}

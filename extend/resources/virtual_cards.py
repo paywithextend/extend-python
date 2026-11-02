@@ -1,8 +1,10 @@
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 from extend.client import APIClient
 from extend.models import CardCreationRequest, VirtualCardStatus
 from extend.validations import validate_card_creation_data, validate_card_update_data
+
+from ..validations import pagination, resource_id
 from .resource import Resource
 
 
@@ -27,7 +29,7 @@ class VirtualCards(Resource):
         """Get a list of virtual cards with optional filtering and pagination.
 
         Args:
-            page (Optional[int]): The page number for pagination (1-based)
+            page (Optional[int]): The page number for pagination (0-based)
             per_page (Optional[int]): Number of items per page
             status (Optional[str]): Filter cards by status (e.g., "ACTIVE", "CANCELLED", "PENDING", "EXPIRED", "CLOSED", "CONSUMED")
             recipient (Optional[str]): Filter cards by recipient id (e.g., "u_1234")
@@ -51,6 +53,7 @@ class VirtualCards(Resource):
         if status and not VirtualCardStatus.is_valid(status.upper()):
             raise ValueError(f"{status} is not a valid status")
 
+        pagination(page, per_page)
         params = {
             "page": page,
             "count": per_page,
@@ -75,7 +78,7 @@ class VirtualCards(Resource):
         Raises:
             httpx.HTTPError: If the request fails or card not found
         """
-        return await self._request(method="get", path=f"/{card_id}")
+        return await self._request(method="get", path=f"/{resource_id(card_id)}")
 
     async def create_virtual_card(
             self,
@@ -88,6 +91,8 @@ class VirtualCards(Resource):
             recipient: Optional[str] = None,
             cardholder: Optional[str] = None,
             valid_to: Optional[str] = None,
+            *,
+            valid_from: Optional[str] = None,
     ) -> Dict:
         """Create a new virtual card.
 
@@ -127,6 +132,7 @@ class VirtualCards(Resource):
             balance_cents=balance_cents,
             recipient_email=recipient,
             valid_to=valid_to,
+            valid_from=valid_from,
             notes=notes,
             recurs=recurs,
             recurrence=recurrence
@@ -140,7 +146,6 @@ class VirtualCards(Resource):
         if recurs is not None:
             card_data["recurs"] = recurs
 
-        print(f"Creating virtual card with data: {card_data}")  # Debug log
         return await self._request(method="post", params=card_data)
 
     async def update_virtual_card(
@@ -157,16 +162,16 @@ class VirtualCards(Resource):
         Args:
             card_id (str): ID of the virtual card to update.
             balance_cents (int): New balance in cents.
-            display_name (Optional[str]): New display name.
+            display_name (str): Required new display name.
             notes (Optional[str]): New notes.
-            valid_from (Optional[str]): New start date in YYYY-MM-DD format.
+            valid_from (Optional[str]): Local date or ISO timestamp with timezone.
             valid_to (Optional[str]): New expiration date in YYYY-MM-DD format.
 
         Returns:
             Dict: The updated virtual card details.
 
         Raises:
-            ValueError: If date formats are invalid or validTo is before validFrom.
+            ValueError: If the request fields or date formats are invalid.
             httpx.HTTPError: If the request fails or card not found.
 
         Example:
@@ -187,7 +192,7 @@ class VirtualCards(Resource):
             valid_to=valid_to
         )
 
-        return await self._request("put", f"/{card_id}", update_data)
+        return await self._request("put", f"/{resource_id(card_id)}", update_data)
 
     async def cancel_virtual_card(self, card_id: str) -> Dict:
         """Cancel a virtual card, preventing further transactions.
@@ -201,13 +206,10 @@ class VirtualCards(Resource):
         Raises:
             httpx.HTTPError: If the request fails or card not found
         """
-        return await self._request("put", f"/{card_id}/cancel")
+        return await self._request("put", f"/{resource_id(card_id)}/cancel")
 
     async def close_virtual_card(self, card_id: str) -> Dict:
-        """Permanently close a virtual card.
-
-        This action cannot be undone. The card will be permanently disabled
-        and cannot be reactivated.
+        """Close a virtual card, subject to server lifecycle and permission rules.
 
         Args:
             card_id (str): ID of the virtual card to close
@@ -218,4 +220,4 @@ class VirtualCards(Resource):
         Raises:
             httpx.HTTPError: If the request fails or card not found
         """
-        return await self._request("put", f"/{card_id}/close")
+        return await self._request("put", f"/{resource_id(card_id)}/close")
