@@ -1,7 +1,8 @@
 # Publishing a release
 
-Releases promote reviewed changes to `main`. Publishing is a separate, manual
-operation; merging a release PR does not upload a package.
+Releases promote reviewed changes to `main`. Merging a release PR automatically
+starts validation and building. Publication waits for approval of the `pypi`
+environment.
 
 ## One-time publisher configuration
 
@@ -10,7 +11,7 @@ operation; merging a release PR does not upload a package.
 2. On PyPI, configure a Trusted Publisher for the existing `paywithextend` project:
    owner `paywithextend`, repository `extend-python`, workflow `release.yml`,
    environment `pypi`.
-3. Verify both configurations before dispatching. The workflow uses GitHub OIDC;
+3. Verify both configurations before releasing. The workflow uses GitHub OIDC;
    the legacy `PYPI_API_TOKEN` secret is not used. Do not remove legacy credentials
    until the replacement publisher has been verified.
 
@@ -18,15 +19,18 @@ operation; merging a release PR does not upload a package.
 
 1. Update `extend/__version__.py`, the changelog and migration notes together.
 2. Open a release PR to `main`; require review and successful Python 3.11–3.14 CI.
-3. Merge the release PR. Create the matching `vX.Y.Z` tag at the reviewed main
-   commit and push it. Never move a published tag or reuse a published version.
-4. Run **Publish reviewed SDK** (`release.yml`) on `main` with that tag.
-   The workflow checks tag ancestry and version, lints and tests source, builds
-   distributions, tests the installed wheel and checks runtime advisories before
-   requesting publication through the `pypi` environment.
-5. Confirm the workflow succeeded, both distributions exist on PyPI and a fresh
-   installation reports the expected version. Create the matching GitHub release
-   from the changelog and link the migration guide.
+3. Merge the release PR. **Publish reviewed SDK** starts automatically on `main`,
+   reads the version from that exact commit, and skips versions with an existing
+   GitHub release. Never reuse a published version or move its tag.
+4. After source tests, installed-wheel tests and runtime advisory checks pass,
+   an authorized reviewer approves the `pypi` deployment in the Actions run.
+   GitHub publishes the validated artifacts through OIDC, then creates the version
+   tag and GitHub release at the merged commit using the changelog as release notes.
+5. Confirm both distributions exist on PyPI and a fresh installation reports the
+   expected version. For a failed run, use **Re-run failed jobs**. Publication skips
+   existing files so a partial upload or GitHub release failure can be recovered
+   without replacing published files. **Run workflow** on `main` remains available
+   for recovery; no tag input or manual tag creation is needed.
 6. Merge release-only metadata changes back into `development` when necessary.
 
 Publish SDK 3.0.0 before releasing packages that require `paywithextend==3.0.0`.

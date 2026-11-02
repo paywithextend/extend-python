@@ -25,12 +25,11 @@
 
 ## Releases
 
-Release publication is manual, from a versioned tag reachable from main.
-Run the release workflow on main with that tag after review and CI.
-The protected pypi environment and Trusted Publisher must already be configured.
-The workflow tests the source, builds a wheel, tests that wheel and publishes the
-same artifacts. Merging a PR does not publish a package. See [RELEASING.md](RELEASING.md)
-for publisher configuration, tagging and publication verification.
+Merging a release PR into `main` automatically starts source validation, wheel
+validation and building. Publication waits for approval of the protected `pypi`
+environment, then uses Trusted Publishing and creates the version tag and GitHub
+release. Both the environment and Trusted Publisher must be configured first.
+See [RELEASING.md](RELEASING.md) for configuration and recovery instructions.
 
 ## Resource contracts
 
