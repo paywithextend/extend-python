@@ -1,6 +1,6 @@
 # Migrating from 2.x to 3.x
 
-- Python 3.11 or newer is required. CI checks 3.11, 3.12 and 3.13.
+- Python 3.11 or newer is required. CI checks 3.11, 3.12, 3.13 and 3.14.
 - Select environment="stage" or environment="prod" when constructing a client.
   An explicitly set ENV=stage or ENV=prod is supported for migration. Missing,
   misspelled and legacy ENV=dev values fail at client construction. Import is safe.
@@ -25,11 +25,11 @@
 
 ## Releases
 
-Release publication is manual, from a versioned tag reachable from development.
-Run the release workflow on development with that tag after review and CI.
-The protected pypi environment and Trusted Publisher must already be configured.
-The workflow tests the source, builds a wheel, tests that wheel and publishes the
-same artifacts. Merging a PR does not publish a package.
+Merging a release PR into `main` automatically starts source validation, wheel
+validation and building. Publication waits for approval of the protected `pypi`
+environment, then uses Trusted Publishing and creates the version tag and GitHub
+release. Both the environment and Trusted Publisher must be configured first.
+See [RELEASING.md](RELEASING.md) for configuration and recovery instructions.
 
 ## Resource contracts
 

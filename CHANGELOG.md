@@ -1,15 +1,33 @@
 # Changelog
 
-## Unreleased
+All notable changes to this project are documented here using
+[Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-- Make the default test suite offline, with full source and installed-wheel CI coverage.
-- Replace ambient live tests with explicit fixtures, opt-in writes, cleanup journals, and bounded automatch completion checks.
-- Add origin-constrained DELETE transport for resource cleanup; mutations are never retried.
+## [3.0.0]
 
-All notable changes to this project will be documented in this file.
+### Changed
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+- **Breaking:** require Python 3.11 or newer and an explicit `stage` or `prod` environment.
+- **Breaking:** stop loading `.env` files automatically; applications own configuration loading.
+- **Breaking:** validate low-level endpoint paths and resource identifiers; pass query values through `params`.
+- Give clients independent authentication state and explicit asynchronous cleanup.
+- Align transaction pagination, filters, card dates, recurrence and expense-label null handling with API contracts.
+- Remove unused runtime dependencies; keep HTTPX as the only direct runtime dependency.
+
+### Added
+
+- Bounded retries for safe GET requests and structured, redacted API errors.
+- Resource wrappers for organizations, members, users, expense policies and individual labels, subject to endpoint availability and permissions.
+- Origin-constrained DELETE transport for resource cleanup; mutations are never retried.
+- Offline source and installed-wheel tests on Python 3.11 through 3.14, plus opt-in live validation with explicit fixtures and cleanup journals.
+- Migration, security and release documentation, dependency auditing and Trusted Publishing support.
+
+### Security
+
+- Validate request destinations before attaching credentials and disable redirects.
+- Refresh authentication per request and prevent shared client credential reuse.
+- Remove sensitive request logging and implicit environment-file loading.
 
 ## [2.0.0] - 2025-10-26
 

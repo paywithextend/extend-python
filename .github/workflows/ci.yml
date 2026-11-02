@@ -2,7 +2,7 @@ name: SDK validation
 on:
   pull_request:
   push:
-    branches: [development]
+    branches: [development, main]
 permissions:
   contents: read
 jobs:
