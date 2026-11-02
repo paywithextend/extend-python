@@ -1,0 +1,31 @@
+name: SDK validation
+on:
+  pull_request:
+  push:
+    branches: [development]
+permissions:
+  contents: read
+jobs:
+  sdk:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -c requirements.lock . pytest==9.2.0 pytest-asyncio==1.4.1 ruff==0.17.3 build==1.6.1
+      - run: python -m ruff check extend tests tools
+      - run: python -m pytest -q
+      - run: python -m build
+      - name: Verify installed wheel without source imports
+        run: |
+          python -m pip install --force-reinstall dist/*.whl
+          python tools/test_installed_wheel.py
+      - name: Check runtime wheel advisories in an isolated environment
+        run: |
+          python -m venv /tmp/runtime-check
+          /tmp/runtime-check/bin/python -m pip install dist/*.whl
+          /tmp/runtime-check/bin/python tools/check_advisories.py

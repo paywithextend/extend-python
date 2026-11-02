@@ -1,8 +1,10 @@
-from typing import Optional, Dict, Sequence, List
+from typing import Dict, Optional, Sequence
 
 from extend.client import APIClient
+
+from ..filters import transaction_query
+from ..validations import pagination, resource_id
 from .resource import Resource
-from ..models import TransactionStatus
 
 
 class Transactions(Resource):
@@ -27,6 +29,12 @@ class Transactions(Resource):
             search_term: Optional[str] = None,
             sort_field: Optional[str] = None,
             missing_expense_categories: Optional[bool] = None,
+            *,
+            statuses: Optional[Sequence[str]] = None,
+            receipt_statuses: Optional[Sequence[str]] = None,
+            expense_category_statuses: Optional[Sequence[str]] = None,
+            credit_card_id: Optional[str] = None,
+            date_type: str = "Transaction",
     ) -> Dict:
         """Get a list of transactions with optional filtering and pagination.
 
@@ -47,52 +55,32 @@ class Transactions(Resource):
             missing_expense_categories (Optional[bool]): Filter transactions that are missing required expense categories
 
         Returns:
-            Dict: A dictionary containing:
-                - transactions: List of Transaction objects
-                - pagination: Dictionary containing the following pagination stats:
-                    - page: Current page number
-                    - pageItemCount: Number of items per page
-                    - totalItems: Total items will be 1 more than pageItemCount if there is another page to fetch
-                    - numberOfPages: Total number of pages
+            Dict: The report envelope with page, perPage, count and transactions.
+                A full page's count is a continuation sentinel, not an exact total.
+                Use count_transactions for an explicit exact count.
 
         Raises:
             httpx.HTTPError: If the request fails
         """
 
-        normalized_statuses: Optional[List[str]] = None
-        if status:
-            status_values = [status] if isinstance(status, str) else list(status)
-            normalized_statuses = []
-            invalid_statuses = []
-            for status_value in status_values:
-                normalized_value = status_value.upper()
-                if TransactionStatus.is_valid(normalized_value):
-                    normalized_statuses.append(normalized_value)
-                else:
-                    invalid_statuses.append(status_value)
-            if invalid_statuses:
-                invalid_list = ", ".join(invalid_statuses)
-                raise ValueError(f"{invalid_list} is not a valid status")
-            if not normalized_statuses:
-                normalized_statuses = None
+        pagination(page, per_page, first_page=1)
+        params = transaction_query(
+            from_date=from_date, to_date=to_date, status=status, statuses=statuses,
+            virtual_card_id=virtual_card_id, credit_card_id=credit_card_id,
+            min_amount_cents=min_amount_cents, max_amount_cents=max_amount_cents,
+            receipt_missing=receipt_missing, receipt_statuses=receipt_statuses,
+            missing_expense_categories=missing_expense_categories,
+            expense_category_statuses=expense_category_statuses,
+            search_term=search_term, sort_field=sort_field, date_type=date_type,
+        )
+        params.update(page=page, perPage=per_page)
+        return await self._request("get", params=params, base_url_override="/reports/transactions/v2")
 
-        params = {
-            "page": page,
-            "perPage": per_page,
-            "since": from_date,
-            "until": to_date,
-            "status": normalized_statuses,
-            "virtualCardId": virtual_card_id,
-            "minClearingBillingCents": min_amount_cents,
-            "maxClearingBillingCents": max_amount_cents,
-            "receiptMissing": receipt_missing,
-            "receiptStatus": ["Missing"] if receipt_missing else None,
-            "expenseCategoryStatuses": ["Missing"] if missing_expense_categories else None,
-            "search": search_term,
-            "sort": sort_field,
-        }
-
-        return await self._request(method="get", params=params, base_url_override='/reports/transactions/v2')
+    async def count_transactions(self, **filters) -> Dict:
+        """Return {count: int} using the same filters as get_transactions, without pagination."""
+        return await self._request(
+            "get", params=transaction_query(**filters), base_url_override="/reports/transactions/count"
+        )
 
     async def get_transaction(self, transaction_id: str) -> Dict:
         """Get detailed information about a specific transaction.
@@ -106,7 +94,7 @@ class Transactions(Resource):
         Raises:
             httpx.HTTPError: If the request fails or transaction not found
         """
-        return await self._request(method="get", path=f"/{transaction_id}")
+        return await self._request(method="get", path=f"/{resource_id(transaction_id)}")
 
     async def update_transaction_expense_data(self, transaction_id: str, data: Dict) -> Dict:
         """Update the expense data for a specific transaction.
@@ -132,11 +120,11 @@ class Transactions(Resource):
         """
         return await self._request(
             method="patch",
-            path=f"/{transaction_id}/expensedata",
+            path=f"/{resource_id(transaction_id)}/expensedata",
             params=data
         )
 
-    async def send_receipt_reminder(self, transaction_id: str) -> Dict:
+    async def send_receipt_reminder(self, transaction_id: str) -> None:
         """Send a transaction-specific receipt reminder.
 
         Args:
@@ -150,5 +138,5 @@ class Transactions(Resource):
         """
         return await self._request(
             method="post",
-            path=f"/{transaction_id}/receiptreminder"
+            path=f"/{resource_id(transaction_id)}/receiptreminder"
         )

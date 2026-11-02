@@ -1,691 +1,155 @@
-import os
-import uuid
-from datetime import datetime, timedelta
+"""Opt-in checks of SDK contracts against explicitly provisioned test resources."""
+import struct
+import zlib
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
-from typing import Dict, Optional
 
-import httpx
 import pytest
-from dotenv import load_dotenv
 
-from extend import ExtendClient
-from extend.auth import BasicAuth
+from tests.live_support import wait_for_automatch
 
-load_dotenv()
-
-# Skip all tests if environment variables are not set
-pytestmark = pytest.mark.skipif(
-    not all([
-        os.getenv("EXTEND_API_KEY"),
-        os.getenv("EXTEND_API_SECRET"),
-        os.getenv("EXTEND_TEST_RECIPIENT"),
-        os.getenv("EXTEND_TEST_CARDHOLDER")
-    ]),
-    reason="Integration tests require EXTEND_API_KEY, EXTEND_API_SECRET, EXTEND_TEST_RECIPIENT, and EXTEND_TEST_CARDHOLDER environment variables"
-)
+pytestmark = [pytest.mark.integration, pytest.mark.asyncio]
 
 
-@pytest.fixture(scope="session")
-def extend():
-    """Create a real API client for integration testing"""
-    api_key = os.getenv("EXTEND_API_KEY")
-    api_secret = os.getenv("EXTEND_API_SECRET")
-    return ExtendClient(auth=BasicAuth(api_key, api_secret))
+def png():
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", 100, 100, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress((b"\x00" + b"\xff" * 300) * 100))
+            + chunk(b"IEND", b""))
 
 
-@pytest.fixture(scope="session")
-def test_recipient():
-    """Get the test recipient email"""
-    return os.getenv("EXTEND_TEST_RECIPIENT")
+async def test_fixture_reads(live):
+    sdk, cfg = live.sdk, live.config
+    card = await sdk.credit_cards.get_credit_card_detail(cfg["credit_card_id"])
+    assert card["creditCard"]["id"] == cfg["credit_card_id"]
+    transaction = await sdk.transactions.get_transaction(cfg["transaction_id"])
+    assert transaction["id"] == cfg["transaction_id"]
+    categories = await sdk.expense_data.get_expense_categories(active=True)
+    assert isinstance(categories["expenseCategories"], list)
 
 
-@pytest.fixture(scope="session")
-def test_cardholder():
-    """Get the test cardholder email"""
-    return os.getenv("EXTEND_TEST_CARDHOLDER")
+@pytest.mark.parametrize("missing", [True, False])
+async def test_transaction_receipt_filter(live, missing):
+    response = await live.sdk.transactions.get_transactions(
+        credit_card_id=live.config["credit_card_id"], receipt_missing=missing, page=1, per_page=10
+    )
+    rows = response["report"]["transactions"]
+    assert len(rows) <= 10
+    assert all((row["attachmentsCount"] == 0) == missing for row in rows)
 
 
-@pytest.fixture(scope="session")
-async def test_credit_card(extend):
-    """Get the first active credit card for testing"""
-    response = await extend.credit_cards.get_credit_cards(status="ACTIVE")
-    assert response.get("creditCards"), "No credit cards available for testing"
-    return response["creditCards"][0]
+async def test_transaction_filters_and_pagination(live):
+    sdk, cfg = live.sdk, live.config
+    detail = await sdk.transactions.get_transaction(cfg["transaction_id"])
+    response = await sdk.transactions.get_transactions(
+        virtual_card_id=detail["virtualCardId"], statuses=[detail["status"]],
+        page=1, per_page=1, sort_field="-date",
+    )
+    rows = response["report"]["transactions"]
+    assert len(rows) == 1
+    assert rows[0]["virtualCardId"] == detail["virtualCardId"]
+    assert rows[0]["status"] == detail["status"]
+    count = await sdk.transactions.count_transactions(
+        virtual_card_id=detail["virtualCardId"], statuses=[detail["status"]]
+    )
+    assert count["count"] >= 1
+    second = await sdk.transactions.get_transactions(
+        virtual_card_id=detail["virtualCardId"], statuses=[detail["status"]],
+        page=2, per_page=1, sort_field="-date",
+    )
+    assert len(second["report"]["transactions"]) <= 1
+    if second["report"]["transactions"]:
+        assert second["report"]["transactions"][0]["id"] != rows[0]["id"]
 
 
-@pytest.mark.integration
-class TestVirtualCards:
-    """Integration tests for virtual card operations"""
+@pytest.mark.parametrize("recurring", [False, True])
+async def test_virtual_card_lifecycle(writes, recurring):
+    run = writes
+    until = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(timespec="milliseconds")
+    response = await run.sdk.virtual_cards.create_virtual_card(
+        credit_card_id=run.config["credit_card_id"], display_name=run.name,
+        balance_cents=100, recipient=run.config["recipient"], cardholder=run.config["cardholder"],
+        recurs=recurring, valid_to=None if recurring else until,
+        recurrence={"balance_cents": 100, "period": "DAILY", "interval": 1,
+                    "terminator": "DATE", "until": until} if recurring else None,
+    )
+    card = response["virtualCard"]
+    run.cleanup("virtual_card", card["id"], run.close_card, card["id"])
+    assert card["status"] == "ACTIVE"
+    assert card["recurs"] is recurring
+    assert card["displayName"] == run.name
+    changed = await run.sdk.virtual_cards.update_virtual_card(card["id"], display_name=run.name, notes="SDK test", balance_cents=200)
+    assert changed["virtualCard"]["balanceCents"] == 200
+    assert changed["virtualCard"]["notes"] == "SDK test"
+    cancelled = await run.sdk.virtual_cards.cancel_virtual_card(card["id"])
+    assert cancelled["virtualCard"]["status"] == "CANCELLED"
+    # Closing and verifying CLOSED happens in teardown even after assertion failures.
 
-    @pytest.mark.asyncio
-    async def test_virtual_card_lifecycle(self, extend, test_credit_card, test_recipient, test_cardholder):
-        """Test creating, retrieving, updating, and canceling a virtual card"""
-        # Calculate valid_to date (3 months from today)
-        valid_to = (datetime.now() + timedelta(days=90)).strftime("%Y-%m-%dT23:59:59.999Z")
 
-        # Create a simple virtual card without recurrence
-        response = await extend.virtual_cards.create_virtual_card(
-            credit_card_id=test_credit_card["id"],
-            display_name="Integration Test Card",
-            balance_cents=100,
-            notes="Created by integration test",
-            recurs=False,  # Explicitly set to false for non-recurring card
-            recipient=test_recipient,
-            cardholder=test_cardholder,
-            valid_to=valid_to
+async def test_expense_category_label_and_transaction(writes):
+    run, sdk = writes, writes.sdk
+    txid = run.config["transaction_id"]
+    category = await sdk.expense_data.create_expense_category(
+        name=run.name, code=run.name, required=False, active=True, free_text_allowed=False
+    )
+    catid = category["id"]
+    run.cleanup("category", catid, run.deactivate_category, catid)
+    assert (await sdk.expense_data.get_expense_category(catid))["name"] == run.name
+    label = await sdk.expense_data.create_expense_category_label(catid, name=run.name, code=run.name, active=True)
+    labelid = label["id"]
+    run.cleanup("label", labelid, run.deactivate_label, catid, labelid)
+    labels = await sdk.expense_data.get_expense_category_labels(catid)
+    assert any(label["id"] == labelid and label["name"] == run.name for label in labels["expenseLabels"])
+    # PATCH affects only this newly created category. Clear it before deactivating it;
+    # never replace or restore unrelated categories belonging to other tests/users.
+    async def clear():
+        await sdk.transactions.update_transaction_expense_data(
+            txid, {"expenseDetails": [{"categoryId": catid, "labelId": None}]}
         )
+        result = await sdk.transactions.get_transaction(txid)
+        assert not any(d["categoryId"] == catid and d.get("labelId") for d in result.get("expenseDetails", []))
+    run.cleanup("transaction_category", txid + "/" + catid, clear)
+    result = await sdk.transactions.update_transaction_expense_data(
+        txid, {"expenseDetails": [{"categoryId": catid, "labelId": labelid}]}
+    )
+    assert any(d["categoryId"] == catid and d["labelId"] == labelid for d in result["expenseDetails"])
 
-        card = response["virtualCard"]
-        assert card["status"] == "ACTIVE"
-        assert card["displayName"] == "Integration Test Card"
-        assert card["balanceCents"] == 100
-        assert card["recurs"] is False
-        assert card["notes"] == "Created by integration test"
 
-        # Store card ID for subsequent tests
-        card_id = card["id"]
-
-        # Get the card details
-        get_response = await extend.virtual_cards.get_virtual_card_detail(card_id)
-        assert get_response["virtualCard"]["id"] == card_id
-
-        # Update the card
-        update_response = await extend.virtual_cards.update_virtual_card(
-            card_id=card_id,
-            display_name="Updated Test Card",
-            notes="Updated by integration test",
-            balance_cents=200
+async def test_receipt_upload(receipt_cleanup, writes):
+    run = writes
+    with BytesIO(png()) as stream:
+        result = await run.sdk.receipt_attachments.create_receipt_attachment(
+            stream, transaction_id=run.config["transaction_id"],
+            filename=run.name + ".png", content_type="image/png",
         )
-
-        updated_card = update_response["virtualCard"]
-        assert updated_card["status"] == "ACTIVE"
-        assert updated_card["displayName"] == "Updated Test Card"
-        assert updated_card["balanceCents"] == 200
-        assert updated_card["notes"] == "Updated by integration test"
-
-        # Cancel the card
-        cancel_response = await extend.virtual_cards.cancel_virtual_card(card_id)
-        assert cancel_response["virtualCard"]["status"] == "CANCELLED"
-
-        # Close the card (cleanup)
-        close_response = await extend.virtual_cards.close_virtual_card(card_id)
-        assert close_response["virtualCard"]["status"] == "CLOSED"
-
-    @pytest.mark.asyncio
-    async def test_list_virtual_cards(self, extend):
-        """Test listing virtual cards with various filters"""
-
-        # List all cards
-        response = await extend.virtual_cards.get_virtual_cards()
-        assert "virtualCards" in response
-
-        # List with pagination
-        response = await extend.virtual_cards.get_virtual_cards(
-            page=1,
-            per_page=10
-        )
-        assert len(response["virtualCards"]) <= 10
-
-        # List with status filter
-        response = await extend.virtual_cards.get_virtual_cards(
-            status="CLOSED"
-        )
-        for card in response["virtualCards"]:
-            assert card["status"] == "CLOSED"
-
-    @pytest.mark.asyncio
-    async def test_list_virtual_cards_with_sorting(self, extend):
-        """Test listing virtual cards with various sorting options"""
-
-        # Test sorting by display name ascending
-        asc_response = await extend.virtual_cards.get_virtual_cards(
-            sort_field="displayName",
-            sort_direction="ASC",
-            per_page=50  # Ensure we get enough cards to compare
-        )
-
-        # Test sorting by display name descending
-        desc_response = await extend.virtual_cards.get_virtual_cards(
-            sort_field="displayName",
-            sort_direction="DESC",
-            per_page=50  # Ensure we get enough cards to compare
-        )
-
-        # Verify responses contain cards
-        assert "virtualCards" in asc_response
-        assert "virtualCards" in desc_response
-
-        # If sufficient cards exist, just verify the orders are different
-        # rather than trying to implement our own sorting logic
-        if len(asc_response["virtualCards"]) > 1 and len(desc_response["virtualCards"]) > 1:
-            asc_ids = [card["id"] for card in asc_response["virtualCards"]]
-            desc_ids = [card["id"] for card in desc_response["virtualCards"]]
-
-            # Verify the orders are different for different sort directions
-            assert asc_ids != desc_ids, "ASC and DESC sorting should produce different results"
-
-        # Test other sort fields
-        for field in ["createdAt", "updatedAt", "balanceCents", "status", "type"]:
-            # Test both directions for each field
-            for direction in ["ASC", "DESC"]:
-                response = await extend.virtual_cards.get_virtual_cards(
-                    sort_field=field,
-                    sort_direction=direction
-                )
-                assert "virtualCards" in response, f"Sorting by {field} {direction} should return virtual cards"
-
-
-@pytest.mark.integration
-class TestTransactions:
-    """Integration tests for transaction operations"""
-
-    @pytest.mark.asyncio
-    async def test_list_transactions(self, extend):
-        """Test listing transactions with various filters"""
-        # Get transactions
-        response = await extend.transactions.get_transactions()
-
-        transactions = get_transactions_from_response(response)
-        transaction = transactions[0]
-        required_fields = ["id", "status", "virtualCardId", "merchantName", "type", "authBillingAmountCents"]
-        for field in required_fields:
-            assert field in transaction, f"Transaction should contain '{field}' field"
-
-    @pytest.mark.asyncio
-    async def test_get_transactions_receipt_missing_filter(self, extend):
-        """Test that filtering transactions by receipt_required works."""
-        response = await extend.transactions.get_transactions(receipt_missing=True)
-        transactions = get_transactions_from_response(response)
-
-        if transactions:
-            for transaction in transactions:
-                assert (
-                        transaction.get("attachmentsCount") is 0 and transaction.get("receiptRequired") is True
-                ), f"Transaction {transaction.get('id')} should have 0 attachments if receiptRequired is True"
-
-        response = await extend.transactions.get_transactions(receipt_missing=False)
-        transactions = get_transactions_from_response(response)
-
-        if transactions:
-            for transaction in transactions:
-                assert (
-                        transaction.get("attachmentsCount") is not 0 or transaction.get("receiptRequired") is False
-                ), f"Transaction {transaction.get('id')} should have more than 0 attachments if receiptRequired is True"
-
-    @pytest.mark.asyncio
-    async def test_list_transactions_with_sorting(self, extend):
-        """Test listing transactions with various sorting options"""
-
-        # Define sort fields - positive for ASC, negative (prefixed with -) for DESC
-        sort_fields = [
-            "recipientName", "-recipientName",
-            "merchantName", "-merchantName",
-            "amount", "-amount",
-            "date", "-date"
-        ]
-
-        # Test each sort field
-        for sort_field in sort_fields:
-            # Get transactions with this sort
-            response = await extend.transactions.get_transactions(
-                sort_field=sort_field,
-                per_page=10
-            )
-
-            transactions = get_transactions_from_response(response)
-
-            # If we have enough data, test opposite sort direction for comparison
-            if len(transactions) > 1:
-                # Determine the field name and opposite sort field
-                is_desc = sort_field.startswith("-")
-                field_name = sort_field[1:] if is_desc else sort_field
-                opposite_sort = field_name if is_desc else f"-{field_name}"
-
-                # Get transactions with opposite sort
-                opposite_response = await extend.transactions.get_transactions(
-                    sort_field=opposite_sort,
-                    per_page=10
-                )
-
-                # Get IDs in both sort orders for comparison
-                sorted_ids = [tx["id"] for tx in response["report"]["transactions"]]
-                opposite_sorted_ids = [tx["id"] for tx in opposite_response["report"]["transactions"]]
-
-                # If we have the same set of transactions in both responses,
-                # verify that different sort directions produce different orders
-                if set(sorted_ids) == set(opposite_sorted_ids) and len(sorted_ids) > 1:
-                    assert sorted_ids != opposite_sorted_ids, (
-                        f"Different sort directions for {field_name} should produce different results"
-                    )
-
-    @pytest.mark.asyncio
-    async def test_list_transactions_with_status_filter(self, extend):
-        """Ensure status filtering supports single and multiple values."""
-
-        baseline_response = await extend.transactions.get_transactions(per_page=20)
-        baseline_transactions = get_transactions_from_response(baseline_response)
-
-        if not baseline_transactions:
-            pytest.skip("No transactions available to validate status filtering")
-
-        unique_statuses = {tx["status"] for tx in baseline_transactions if tx.get("status")}
-
-        if not unique_statuses:
-            pytest.skip("Transactions are missing status values for validation")
-
-        single_status = next(iter(unique_statuses))
-
-        # List using a single status value in a sequence
-        single_response = await extend.transactions.get_transactions(status=[single_status])
-        single_transactions = get_transactions_from_response(single_response)
-        if single_transactions:
-            for transaction in single_transactions:
-                assert transaction.get("status") == single_status
-
-        # List using multiple status values when available
-        if len(unique_statuses) > 1:
-            multi_statuses = list(unique_statuses)[:2]
-            multi_response = await extend.transactions.get_transactions(status=multi_statuses)
-            multi_transactions = get_transactions_from_response(multi_response)
-            allowed_statuses = set(multi_statuses)
-            if multi_transactions:
-                for transaction in multi_transactions:
-                    assert transaction.get("status") in allowed_statuses
-
-    @pytest.mark.asyncio
-    async def test_list_transactions_with_date_filters(self, extend):
-        """Validate since/until filters constrain transaction authedAt timestamps."""
-
-        baseline_response = await extend.transactions.get_transactions(per_page=50, sort_field='-date')
-        baseline_transactions = get_transactions_from_response(baseline_response)
-
-        if not baseline_transactions:
-            pytest.skip("No transactions available to validate date filters")
-
-        def _parse_timestamp(raw: str) -> datetime:
-            try:
-                return datetime.strptime(raw, "%Y-%m-%dT%H:%M:%S.%f%z")
-            except ValueError:
-                return datetime.strptime(raw, "%Y-%m-%d")
-
-        def _extract_transaction_datetime(tx: Dict) -> Optional[datetime]:
-            authed_at = tx.get("authedAt")
-            if isinstance(authed_at, str):
-                try:
-                    return _parse_timestamp(authed_at)
-                except ValueError:
-                    return None
-            return None
-
-        parsed_dates = [dt for tx in baseline_transactions if (dt := _extract_transaction_datetime(tx)) is not None]
-
-        if not parsed_dates:
-            pytest.skip("Transactions do not include parsable authedAt values for validation")
-
-        parsed_dates.sort()
-        unique_dates = sorted({dt.date() for dt in parsed_dates})
-
-        since_date = unique_dates[0]
-        if len(unique_dates) > 1:
-            since_date = unique_dates[1]
-
-        until_date = unique_dates[-1]
-        if len(unique_dates) > 1:
-            until_date = unique_dates[-2]
-
-        since_response = await extend.transactions.get_transactions(from_date=since_date.isoformat(), per_page=50)
-        since_transactions = get_transactions_from_response(since_response)
-        if since_transactions:
-            for transaction in since_transactions:
-                parsed = _extract_transaction_datetime(transaction)
-                assert parsed is not None
-                assert parsed.date() >= since_date
-
-        until_response = await extend.transactions.get_transactions(to_date=until_date.isoformat(), per_page=50)
-        until_transactions = get_transactions_from_response(until_response)
-        if until_transactions:
-            for transaction in until_transactions:
-                parsed = _extract_transaction_datetime(transaction)
-                assert parsed is not None
-                assert parsed.date() <= until_date
-
-        range_response = await extend.transactions.get_transactions(
-            from_date=since_date.isoformat(),
-            to_date=until_date.isoformat(),
-            per_page=50
-        )
-        range_transactions = get_transactions_from_response(range_response)
-        if range_transactions:
-            for transaction in range_transactions:
-                parsed = _extract_transaction_datetime(transaction)
-                assert parsed is not None
-                assert since_date <= parsed.date() <= until_date
-
-
-@pytest.mark.integration
-class TestRecurringCards:
-    """Integration tests for recurring virtual cards"""
-
-    @pytest.mark.asyncio
-    async def test_create_recurring_card(self, extend, test_credit_card, test_recipient, test_cardholder):
-        """Test creating a daily recurring card"""
-        next_month = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%dT23:59:59.999Z")
-
-        # Create a daily recurring card
-        response = await extend.virtual_cards.create_virtual_card(
-            credit_card_id=test_credit_card["id"],
-            display_name="Daily Recurring Test Card",
-            balance_cents=100,
-            notes="Created by integration test",
-            recurs=True,
-            recipient=test_recipient,
-            cardholder=test_cardholder,
-            recurrence={
-                "balance_cents": 100,
-                "period": "DAILY",
-                "interval": 1,
-                "terminator": "DATE",
-                "until": next_month
-            }
-        )
-
-        card = response["virtualCard"]
-        assert card["status"] == "ACTIVE"
-        assert card["displayName"] == "Daily Recurring Test Card"
-        assert card["balanceCents"] == 100
-        assert card["recurs"] is True
-        assert card["recurrence"]["period"] == "DAILY"
-        assert card["recurrence"]["interval"] == 1
-        assert card["recurrence"]["terminator"] == "DATE"
-        # Normalize timezone format before comparison
-        expected_date = next_month.replace("Z", "+0000")
-        assert card["recurrence"]["until"] == expected_date
-
-        # Store card ID for cleanup
-        card_id = card["id"]
-
-        # Clean up by cancelling and closing
-        cancel_response = await extend.virtual_cards.cancel_virtual_card(card_id)
-        assert cancel_response["virtualCard"]["status"] == "CANCELLED"
-
-        close_response = await extend.virtual_cards.close_virtual_card(card_id)
-        assert close_response["virtualCard"]["status"] == "CLOSED"
-
-
-@pytest.mark.integration
-class TestExpenseData:
-    """Integration tests for expense category and label operations"""
-
-    @pytest.mark.asyncio
-    async def test_create_update_category_and_label(self, extend):
-        # Create a new expense category
-        u = uuid.uuid4()
-        name = f"Integration Test Category {u}"
-        code = f"INTEG-CAT-{u}"
-        category_resp = await extend.expense_data.create_expense_category(
-            name=name,
-            code=code,
-            required=True,
-            active=True,
-            free_text_allowed=False,
-        )
-
-        category_id = category_resp["id"]
-        assert category_resp["name"] == name
-        assert category_resp["code"] == code
-
-        # re-fetch newly created expense category
-        category = await extend.expense_data.get_expense_category(category_id)
-        assert category_resp["name"] == name
-        assert category_resp["code"] == code
-
-        # Update the category
-        updated_name = f"Updated Integration Category {u}"
-        updated_category = await extend.expense_data.update_expense_category(
-            category_id=category_id,
-            name=updated_name,
-            active=False
-        )
-
-        assert updated_category["name"] == updated_name
-        assert updated_category["active"] is False
-
-        # Create a label under the category
-        u1 = uuid.uuid4()
-        label_name_one = f"Integration Label {u1}"
-        label_code_one = f"INTEG-LABEL-{u1}"
-        u2 = uuid.uuid4()
-        label_name_two = f"Integration Label {u2}"
-        label_code_two = f"INTEG-LABEL-{u2}"
-
-        label_resp_one = await extend.expense_data.create_expense_category_label(
-            category_id=category_id,
-            name=label_name_one,
-            code=label_code_one,
-            active=True
-        )
-
-        label_resp_two = await extend.expense_data.create_expense_category_label(
-            category_id=category_id,
-            name=label_name_two,
-            code=label_code_two,
-            active=True
-        )
-
-        label_id = label_resp_one["id"]
-        assert label_resp_one["name"] == label_name_one
-        assert label_resp_one["code"] == label_code_one
-
-        # Update the label
-        updated_label = await extend.expense_data.update_expense_category_label(
-            category_id=category_id,
-            label_id=label_id,
-            name=f"Updated Label Name {u1}",
-            active=False
-        )
-
-        assert updated_label["name"] == f"Updated Label Name {u1}"
-        assert updated_label["active"] is False
-
-    @pytest.mark.asyncio
-    async def test_get_expense_categories_and_labels(self, extend):
-        # List categories
-        categories = await extend.expense_data.get_expense_categories(active=True)
-        assert isinstance(categories, dict)
-        assert "expenseCategories" in categories
-
-        # If categories exist, fetch one and its labels
-        if categories["expenseCategories"]:
-            cat_id = categories["expenseCategories"][0]["id"]
-
-            # Get single category
-            category = await extend.expense_data.get_expense_category(cat_id)
-            assert category["id"] == cat_id
-
-            # List labels
-            labels = await extend.expense_data.get_expense_category_labels(
-                category_id=cat_id,
-                page=1,
-                per_page=10
-            )
-            assert isinstance(labels, dict)
-            assert "expenseLabels" in labels
-
-
-@pytest.mark.integration
-class TestTransactionExpenseData:
-    """Integration tests for updating transaction expense data using a specific expense category and label"""
-
-    @pytest.mark.asyncio
-    async def test_update_transaction_expense_data_with_specific_category_and_label(self, extend):
-        """Test updating the expense data for a transaction using a specific expense category and label."""
-        # Create a new expense category for testing
-        u = uuid.uuid4()
-        category_name = f"Integration Test Category {u}"
-        category_code = f"INTEG-CAT-{u}"
-        category_resp = await extend.expense_data.create_expense_category(
-            name=category_name,
-            code=category_code,
-            required=True,
-            active=True,
-            free_text_allowed=False,
-        )
-        category_id = category_resp["id"]
-        assert category_resp["name"] == category_name
-        assert category_resp["code"] == category_code
-
-        # Create a label under the category
-        u1 = uuid.uuid4()
-        label_name = f"Integration Label {u1}"
-        label_code = f"INTEG-LABEL-{u1}"
-        label_resp = await extend.expense_data.create_expense_category_label(
-            category_id=category_id,
-            name=label_name,
-            code=label_code,
-            active=True
-        )
-        label_id = label_resp["id"]
-        assert label_resp["name"] == label_name
-        assert label_resp["code"] == label_code
-
-        # Retrieve at least one transaction to update expense data
-        transactions_response = await extend.transactions.get_transactions(per_page=1, sort_field="-date")
-        assert "report" in transactions_response, "Response should include 'report'"
-        assert "transactions" in transactions_response["report"], "Response should include 'transactions'"
-        assert transactions_response["report"][
-            "transactions"], "No transactions available for testing expense data update"
-        transaction = transactions_response["report"]["transactions"][0]
-        transaction_id = transaction["id"]
-
-        # Prepare the expense data payload with the specific category and label
-        update_payload = {
-            "expenseDetails": [
-                {
-                    "categoryId": category_id,
-                    "labelId": label_id
-                }
-            ]
-        }
-
-        # Call the update_transaction_expense_data method
-        response = await extend.transactions.update_transaction_expense_data(transaction_id, update_payload)
-
-        # Verify the response contains the transaction id and expected expense details
-        assert "id" in response, "Response should include the transaction id"
-        assert "expenseDetails" in response, "Response should include expenseDetails"
-        assert len(response["expenseDetails"]) == 1, "Response should contain exactly one expense detail"
-        assert response["expenseDetails"][0]["categoryId"] == category_id, "Category ID should match"
-        assert response["expenseDetails"][0]["labelId"] == label_id, "Label ID should match"
-
-
-@pytest.mark.integration
-class TestReceiptAttachments:
-    """Integration tests for receipt attachment operations"""
-
-    @pytest.mark.asyncio
-    async def test_create_receipt_attachment(self, extend):
-        """Test creating a receipt attachment via multipart upload."""
-        # Create a dummy PNG file in memory
-        # This is a minimal PNG header plus extra bytes to simulate file content.
-        png_header = b'\x89PNG\r\n\x1a\n'
-        dummy_content = png_header + b'\x00' * 100
-        file_obj = BytesIO(dummy_content)
-        # Optionally set a name attribute for file identification in the upload
-        file_obj.name = f"test_receipt_{uuid.uuid4()}.png"
-
-        # Retrieve a valid transaction id from existing transactions
-        transactions_response = await extend.transactions.get_transactions(page=0, per_page=1)
-        assert transactions_response["report"][
-            "transactions"], "No transactions available for testing receipt attachment"
-        transaction_id = transactions_response["report"]["transactions"][0]["id"]
-
-        # Call the receipt attachment upload method
-        response = await extend.receipt_attachments.create_receipt_attachment(
-            transaction_id=transaction_id,
-            file=file_obj
-        )
-
-        # Assert that the response contains expected keys
-        assert "id" in response, "Receipt attachment should have an id"
-        assert "urls" in response, "Receipt attachment should include urls"
-        assert "contentType" in response, "Receipt attachment should include a content type"
-        assert response["contentType"] == "image/png", "Content type should be 'image/png'"
-
-
-@pytest.mark.integration
-class TestReceiptCaptureEndpoints:
-    """Integration tests for the new receipt capture endpoints"""
-
-    @pytest.mark.asyncio
-    async def test_automatch_receipts_and_get_status(self, extend):
-        """
-        Integration test that:
-          1. Creates a dummy receipt attachment for an existing transaction.
-          2. Initiates an automatch job using the new endpoint.
-          3. Retrieves and verifies the automatch job status.
-        """
-        # Create a dummy PNG file in memory (a minimal PNG header plus extra bytes)
-        png_header = b'\x89PNG\r\n\x1a\n'
-        dummy_content = png_header + b'\x00' * 100
-        file_obj = BytesIO(dummy_content)
-        file_obj.name = f"test_receipt_{uuid.uuid4()}.png"
-
-        # Create a receipt attachment using the receipt_attachments endpoint
-        attachment_response = await extend.receipt_attachments.create_receipt_attachment(
-            file=file_obj
-        )
-        assert "id" in attachment_response, "Receipt attachment should have an id"
-        receipt_attachment_id = attachment_response["id"]
-
-        # Initiate an automatch job using the new receipt capture endpoint
-        automatch_response = await extend.receipt_capture.automatch_receipts(
-            receipt_attachment_ids=[receipt_attachment_id]
-        )
-        assert "id" in automatch_response, "Automatch response should include a job id"
-        assert "tasks" in automatch_response, "Automatch response should include tasks"
-        job_id = automatch_response["id"]
-
-        # Retrieve the automatch job status using the new endpoint
-        status_response = await extend.receipt_capture.get_automatch_status(job_id)
-        assert "id" in status_response, "Status response should include a job id"
-        assert status_response["id"] == job_id, "Job id should match the one returned during automatch"
-        assert "tasks" in status_response, "Status response should include tasks"
-
-    @pytest.mark.asyncio
-    async def test_send_receipt_reminder(self, extend):
-        """Test sending a receipt reminder for a transaction that requires a receipt."""
-
-        # Fetch a page of transactions and look for one that requires a receipt
-        response = await extend.transactions.get_transactions(per_page=20, sort_field='-date', receipt_missing=True)
-        transactions = response.get("report", {}).get("transactions", [])
-
-        # Find a transaction with receiptRequired = True
-        tx_with_receipt_required = next(
-            (tx for tx in transactions if tx.get("receiptRequired") is True),
-            None
-        )
-
-        assert tx_with_receipt_required, "No transactions found with receiptRequired = True"
-        transaction_id = tx_with_receipt_required["id"]
-
-        try:
-            # Send receipt reminder
-            result = await extend.transactions.send_receipt_reminder(transaction_id)
-            # The call should succeed and return None
-            assert result is None
-        except httpx.HTTPStatusError as exc:
-            # Check that the status code in the raised exception is 429.
-            assert exc.response.status_code == 429
-
-
-def get_transactions_from_response(response):
-    assert isinstance(response, dict), "Response should be a dictionary"
-    assert "report" in response, "Response should contain a 'report' key"
-    assert "transactions" in response["report"], "Report should contain 'transactions'"
-    return response["report"]["transactions"]
-
-
-def test_environment_variables():
-    """Test that required environment variables are set"""
-    assert os.getenv("EXTEND_API_KEY"), "EXTEND_API_KEY environment variable is required"
-    assert os.getenv("EXTEND_API_SECRET"), "EXTEND_API_SECRET environment variable is required"
+    run.cleanup("receipt", result["id"], run.delete_receipt, result["id"])
+    assert result["contentType"] == "image/png"
+    assert result["transactionId"] == run.config["transaction_id"]
+    assert result["urls"]
+
+
+async def test_automatch_completion(writes, request, receipt_cleanup):
+    if not request.config.getoption("--live-automatch"):
+        pytest.skip("Requires --live-automatch and a synthetic receipt that matches the fixture transaction")
+    run = writes
+    receipt = (run.directory / run.config["matching_receipt_file"]).resolve()
+    assert receipt.is_relative_to(run.directory)
+    with receipt.open("rb") as stream:
+        result = await run.sdk.receipt_attachments.create_receipt_attachment(stream)
+    run.cleanup("receipt", result["id"], run.delete_receipt, result["id"])
+    job = await run.sdk.receipt_capture.automatch_receipts([result["id"]])
+    await wait_for_automatch(run.sdk, job["id"], result["id"], run.config["transaction_id"])
+
+
+async def test_receipt_reminder(live, request):
+    if not request.config.getoption("--live-reminders"):
+        pytest.skip("Reminders require --live-reminders and a dedicated recipient fixture")
+    txid = live.config["reminder_transaction_id"]
+    transaction = await live.sdk.transactions.get_transaction(txid)
+    assert transaction["recipientEmail"].casefold() == live.config["reminder_recipient"].casefold()
+    assert transaction["receiptRequired"] is True
+    assert transaction["attachmentsCount"] == 0
+    # A 429 is a failure, not evidence that a reminder was sent. Delivery is a separate service concern.
+    assert await live.sdk.transactions.send_receipt_reminder(txid) is None

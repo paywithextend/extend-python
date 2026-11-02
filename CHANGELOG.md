@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Make the default test suite offline, with full source and installed-wheel CI coverage.
+- Replace ambient live tests with explicit fixtures, opt-in writes, cleanup journals, and bounded automatch completion checks.
+- Add origin-constrained DELETE transport for resource cleanup; mutations are never retried.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

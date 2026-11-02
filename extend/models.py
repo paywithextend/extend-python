@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import TypedDict, Literal, NotRequired
+from typing import Literal, NotRequired, TypedDict
 
 
 class ValidatableEnum(Enum):
@@ -18,6 +18,8 @@ class CreditCardStatus(ValidatableEnum):
     INACTIVE = "INACTIVE"
     EXPIRED = "EXPIRED"
     BLOCKED = "BLOCKED"
+    NOT_APPLICABLE = "NOT_APPLICABLE"
+    NEEDS_VERIFICATION = "NEEDS_VERIFICATION"
     CLOSED = "CLOSED"
 
 
@@ -28,6 +30,7 @@ class VirtualCardStatus(ValidatableEnum):
     PENDING = "PENDING"
     CLOSED = "CLOSED"
     CONSUMED = "CONSUMED"
+    REJECTED = "REJECTED"
 
 
 class TransactionStatus(ValidatableEnum):
@@ -55,7 +58,7 @@ class VirtualCard(TypedDict):
     Fields:
         id (str): Unique identifier for the virtual card
         displayName (str): Name shown on the virtual card
-        status (Literal['ACTIVE', 'CANCELLED', 'CLOSED']): Current status of the card
+        status (Literal['ACTIVE', 'CANCELLED', 'EXPIRED', 'PENDING', 'CLOSED', 'CONSUMED', 'REJECTED']): Current status of the card
         balanceCents (int): Available balance in cents
         spentCents (int): Amount spent in cents
         limitCents (int): Spending limit in cents
@@ -69,7 +72,7 @@ class VirtualCard(TypedDict):
     """
     id: str
     displayName: str
-    status: Literal['ACTIVE', 'CANCELLED', 'CLOSED']
+    status: Literal['ACTIVE', 'CANCELLED', 'EXPIRED', 'PENDING', 'CLOSED', 'CONSUMED', 'REJECTED']
     balanceCents: int
     spentCents: int
     limitCents: int
@@ -91,8 +94,8 @@ class Transaction(TypedDict):
     Fields:
         id (str): Unique identifier for the transaction
         merchantName (str): Name of the merchant where the transaction occurred
-        status (Literal['PENDING', 'CLEARED', 'DECLINED']): Current status of the transaction
-        type (Literal['AUTH', 'CLEARING']): Type of transaction (authorization or clearing)
+        status (Literal['PENDING', 'CLEARED', 'DECLINED', 'NO_MATCH', 'AVS_PASS', 'AVS_FAIL', 'AUTH_REVERSAL']): Current status of the transaction
+        type (Literal['DEBIT', 'CREDIT', 'AVS']): Transaction type (debit, credit or AVS)
         virtualCardId (str): ID of the virtual card used
         authedAt (NotRequired[str]): Authorization timestamp in ISO format
         clearedAt (NotRequired[str]): Clearing timestamp in ISO format
@@ -103,13 +106,15 @@ class Transaction(TypedDict):
     """
     id: str
     merchantName: str
-    status: Literal['PENDING', 'CLEARED', 'DECLINED']
-    type: Literal['AUTH', 'CLEARING']
-    virtualCardId: str
-    authedAt: NotRequired[str]
-    clearedAt: NotRequired[str]
-    authBillingAmountCents: int
-    clearingBillingAmountCents: NotRequired[int]
+    status: Literal['PENDING', 'CLEARED', 'DECLINED', 'NO_MATCH', 'AVS_PASS', 'AVS_FAIL', 'AUTH_REVERSAL']
+    type: Literal['DEBIT', 'CREDIT', 'AVS']
+    virtualCardId: str | None
+    authedAt: NotRequired[str | None]
+    clearedAt: NotRequired[str | None]
+    authBillingAmountCents: int | None
+    authBillingCurrency: NotRequired[str | None]
+    clearingBillingAmountCents: NotRequired[int | None]
+    clearingBillingCurrency: NotRequired[str | None]
     mcc: NotRequired[str]
     notes: NotRequired[str]
 
@@ -142,7 +147,7 @@ class RecurrenceConfig(TypedDict):
         until (NotRequired[str]): End date in YYYY-MM-DD format if terminator is "DATE"
         byWeekDay (NotRequired[int]): Day of week (0-6) for weekly recurrence
         byMonthDay (NotRequired[int]): Day of month (1-31) for monthly recurrence
-        byYearDay (NotRequired[int]): Day of year (1-366) for yearly recurrence
+        byYearDay (NotRequired[int]): Day of year (1-365) for yearly recurrence
         
     Example:
         ```python
@@ -165,6 +170,7 @@ class RecurrenceConfig(TypedDict):
     byWeekDay: NotRequired[int]
     byMonthDay: NotRequired[int]
     byYearDay: NotRequired[int]
+    resetCount: NotRequired[bool]
 
 
 class CardCreationRequest(TypedDict):
@@ -219,7 +225,7 @@ class CardUpdateRequest(TypedDict):
     """Type definition for card update request data.
     
     Defines the data structure for updating an existing virtual card.
-    All fields are optional, only specified fields will be updated.
+    displayName and balanceCents are required by the PUT endpoint.
     
     Fields:
         displayName (NotRequired[str]): New display name
@@ -237,8 +243,8 @@ class CardUpdateRequest(TypedDict):
         }
         ```
     """
-    displayName: NotRequired[str]
-    balanceCents: NotRequired[int]
+    displayName: str
+    balanceCents: int
     validFrom: NotRequired[str]
     validTo: NotRequired[str]
     notes: NotRequired[str]
